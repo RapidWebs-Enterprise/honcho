@@ -307,6 +307,16 @@ async def create_messages(
 
     await db.commit()
 
+    # Enqueue messages for auto-extraction if enabled
+    if settings.EXTRACTION_ENABLED:
+        from src.kg.extraction_queue import get_extraction_queue
+        queue = get_extraction_queue()
+        await queue.enqueue(
+            workspace_name=workspace_name,
+            message_ids=[m.public_id for m in message_objects],
+            session_name=session_name,
+        )
+
     return message_objects
 
 

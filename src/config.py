@@ -936,6 +936,15 @@ class PeerCardSettings(HonchoSettings):
     ENABLED: bool = True
 
 
+class ExtractionSettings(HonchoSettings):
+    model_config = SettingsConfigDict(env_prefix="EXTRACTION_", extra="ignore")
+
+    ENABLED: bool = True
+    BATCH_SIZE: Annotated[int, Field(default=50, ge=1, le=500)] = 50
+    FLUSH_INTERVAL_SECONDS: Annotated[float, Field(default=30.0, ge=0.0, le=300.0)] = 30.0
+    MAX_CONCURRENT: Annotated[int, Field(default=2, ge=1, le=10)] = 2
+
+
 # Reasoning levels for dialectic - defined here to avoid circular imports with schemas
 ReasoningLevel = Literal["minimal", "low", "medium", "high", "max"]
 REASONING_LEVELS: list[ReasoningLevel] = [
@@ -1482,6 +1491,7 @@ class AppSettings(HonchoSettings):
     LLM: LLMSettings = Field(default_factory=LLMSettings)
     EMBEDDING: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
     DERIVER: DeriverSettings = Field(default_factory=DeriverSettings)
+    EXTRACTION: ExtractionSettings = Field(default_factory=ExtractionSettings)
     DIALECTIC: DialecticSettings = Field(default_factory=DialecticSettings)
     PEER_CARD: PeerCardSettings = Field(default_factory=PeerCardSettings)
     SUMMARY: SummarySettings = Field(default_factory=SummarySettings)

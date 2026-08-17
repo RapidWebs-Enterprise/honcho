@@ -19,6 +19,7 @@ from src.cache.client import close_cache, init_cache
 from src.config import settings
 from src.db import engine, register_db_query_instrumentation, request_context
 from src.deriver.in_process import InProcessQueueManager
+from src.kg.extraction_queue import ExtractionQueue, init_extraction_queue, shutdown_extraction_queue
 from src.exceptions import HonchoException
 from src.routers import (
     conclusions,
@@ -132,6 +133,13 @@ async def lifespan(_: FastAPI):
         app.state.in_process_deriver = in_process_deriver
         logger.info("In-process deriver started (IN_PROCESS_MODE=true)")
 
+    # Start extraction queue if enabled
+    extraction_queue: ExtractionQueue | None = None
+    if settings.EXTRACTION_ENABLED:
+        extraction_queue = await init_extraction_queue()
+        app.state.extraction_queue = extraction_queue
+        logger.info("Extraction queue started (EXTRACTION_ENABLED=true)")
+
     try:
         yield
     finally:
@@ -139,6 +147,11 @@ async def lifespan(_: FastAPI):
         if in_process_deriver:
             await in_process_deriver.stop()
             logger.info("In-process deriver stopped")
+
+        # Stop extraction queue if running
+        if extraction_queue:
+            await shutdown_extraction_queue()
+            logger.info("Extraction queue stopped")
 
         # Shutdown CPU-bound executor (used by in-process deriver)
         from src.utils.cpu_executor import shutdown_executor

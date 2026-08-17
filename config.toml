@@ -38,6 +38,12 @@ DEDUPLICATE = true
 LOG_OBSERVATIONS = false
 STALE_SESSION_TIMEOUT_MINUTES = 30
 
+[extraction]
+ENABLED = true
+BATCH_SIZE = 50
+FLUSH_INTERVAL_SECONDS = 30
+MAX_CONCURRENT = 2
+
 # NVIDIA deepseek-v4-flash-0731 — via OpenAI-compat NIM endpoint
 [deriver.model_config]
 transport = "openai"
