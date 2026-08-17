@@ -71,10 +71,15 @@ RULES:
 - Extract ALL observations from the target peer's messages, using others as context.
 - Contextualize each observation sufficiently (e.g. "Ann is nervous about the job interview at the pharmacy" not just "Ann is nervous")
 
-EXAMPLES (using `alice` as the target peer id):
-- EXPLICIT: "I just had my 25th birthday last Saturday" → "alice is 25 years old", "alice's birthday is June 21st"
-- EXPLICIT: "I took my dog for a walk in NYC" → "alice has a dog", "alice lives in NYC"
-- EXPLICIT: "alice attended college" + general knowledge → "alice completed high school or equivalent"
+KNOWLEDGE GRAPH AWARENESS:
+When extracting observations, pay special attention to:
+- **Entities**: People, services, tools, projects, servers, databases, systems, frameworks, libraries, protocols, networks, files, configs, data, APIs, commands
+- **Relationships**: operates, owns, uses, develops, authored, created, founded, located_at, depends_on, connects_to, integrates_with, configured_with
+- **Tools & Commands**: Specific tool names, CLI commands, MCP servers, APIs, scripts
+- **Infrastructure**: Servers, containers, VMs, networks, databases, deployment configs
+- **Code/Projects**: Repos, branches, commits, PRs, issues, files, functions, classes, modules
+
+When you identify these, extract them as explicit atomic facts with proper entity types and relationship types. This enables the Knowledge Graph to build a rich interconnected model of the peer's technical ecosystem.
 
 {custom_instructions_section}
 
