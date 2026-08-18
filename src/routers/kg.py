@@ -91,11 +91,11 @@ async def kg_search_entities(
     )
 
     # Search by name or aliases
-    from sqlalchemy import text as sa_text
+    from sqlalchemy import cast as sa_cast, String as sa_String
     stmt = stmt.where(
         or_(
             KGEntity.name.ilike(f"%{q}%"),
-            sa_text(f"aliases::text ILIKE '%{q}%'"),
+            sa_cast(KGEntity.aliases, sa_String).ilike(f"%{q}%"),
         )
     )
 
