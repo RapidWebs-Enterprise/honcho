@@ -84,18 +84,17 @@ async def kg_search_entities(
     Uses pg_trgm similarity when available, falls back to ILIKE.
     By default excludes dormant entities (confidence < 0.1, unseen > 90 days).
     """
-    from sqlalchemy import or_, select
+    from sqlalchemy import or_, select, text as sa_text
 
     stmt = select(KGEntity).where(
         KGEntity.workspace_name == workspace_id,
     )
 
-    # Search by name or aliases
-    from sqlalchemy import cast as sa_cast, String as sa_String
+    # Search by name or aliases (JSONB text search)
     stmt = stmt.where(
         or_(
             KGEntity.name.ilike(f"%{q}%"),
-            sa_cast(KGEntity.aliases, sa_String).ilike(f"%{q}%"),
+            sa_text(f"aliases::text ILIKE '%{q}%'"),
         )
     )
 

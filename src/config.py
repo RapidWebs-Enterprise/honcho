@@ -581,7 +581,7 @@ class TomlConfigSettingsSource(PydanticBaseSettingsSource):
         super().__init__(settings_cls)
 
     SECTION_MAP: ClassVar[dict[str, str]] = {
-        "DB": "db",
+        "DB": "database",
         "AUTH": "auth",
         "SENTRY": "sentry",
         "CACHE": "cache",
