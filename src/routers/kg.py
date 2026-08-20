@@ -306,3 +306,79 @@ async def kg_update_entity(
         await db_session.commit()
 
     return {"updated": True, "fields": list(update_values.keys())}
+
+
+@router.get("/context-dump")
+async def kg_context_dump(
+    workspace_id: str = Path(...),
+    peer: str = Query(default="sysop", min_length=1),
+    max_entities: int = Query(default=20, ge=1, le=100),
+    max_depth: int = Query(default=1, ge=0, le=3),
+    limit_per_entity: int = Query(default=10, ge=1, le=50),
+    db_session: AsyncSession = Depends(get_read_db),
+):
+    """
+    Lightweight context dump for periodic Hermes auto-injection.
+
+    No LLM calls — pure graph queries. Returns peer entities + 1-hop
+    neighborhoods formatted for injection.
+
+    RA-06: Resolves entity IDs to names in relationships.
+    RA-07: Filters dormant entities (confidence < 0.1).
+    RA-12: Token estimate uses raw JSON length / 4.
+    """
+    from sqlalchemy import select as sel
+    from datetime import datetime, timezone
+    import json
+
+    # 1. Peer entities (RA-07: skip dormant)
+    from src.kg.models import KGEntity
+    stmt = sel(KGEntity).where(
+        KGEntity.workspace_name == workspace_id,
+        KGEntity.peer_name == peer,
+        KGEntity.confidence >= 0.1,
+    ).order_by(KGEntity.confidence.desc()).limit(max_entities)
+    result = await db_session.execute(stmt)
+    peer_entities = result.scalars().all()
+
+    entities_data = [
+        {
+            "name": e.name,
+            "type": e.entity_type,
+            "confidence": e.confidence,
+            "mention_count": e.mention_count,
+        }
+        for e in peer_entities
+    ]
+
+    # 2. Neighborhoods (top 5 entities)
+    neighborhoods = {}
+    for entity in peer_entities[:min(5, len(peer_entities))]:
+        entity_name = entity.name
+        sub = await subgraph(
+            db_session, workspace_id, entity_name,
+            depth=max_depth, limit=limit_per_entity,
+        )
+
+        # RA-06: Resolve entity IDs -> names in relationships
+        id_to_name = {ent["id"]: ent["name"] for ent in sub["entities"]}
+        for rel in sub["relationships"]:
+            rel["source"] = id_to_name.get(str(rel["source"]), str(rel["source"]))
+            rel["target"] = id_to_name.get(str(rel["target"]), str(rel["target"]))
+
+        neighborhoods[entity_name] = sub
+
+    # 3. Token estimate (RA-12: raw JSON length / 4)
+    raw = json.dumps(
+        {"peer_entities": entities_data, "neighborhoods": neighborhoods},
+        separators=(",", ":"),
+        default=str,
+    )
+    token_estimate = len(raw.encode("utf-8")) // 4
+
+    return {
+        "peer_entities": entities_data,
+        "neighborhoods": neighborhoods,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "token_estimate": token_estimate,
+    }

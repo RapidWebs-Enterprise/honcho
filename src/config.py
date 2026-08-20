@@ -591,6 +591,7 @@ class TomlConfigSettingsSource(PydanticBaseSettingsSource):
         "PEER_CARD": "peer_card",
         "DIALECTIC": "dialectic",
         "SUMMARY": "summary",
+        "RERANKER": "reranker",
         "WEBHOOK": "webhook",
         "DREAM": "dream",
         "VECTOR_STORE": "vector_store",
@@ -943,6 +944,23 @@ class ExtractionSettings(HonchoSettings):
     BATCH_SIZE: Annotated[int, Field(default=50, ge=1, le=500)] = 50
     FLUSH_INTERVAL_SECONDS: Annotated[float, Field(default=30.0, ge=0.0, le=300.0)] = 30.0
     MAX_CONCURRENT: Annotated[int, Field(default=2, ge=1, le=10)] = 2
+
+
+class RerankerSettings(HonchoSettings):
+    """Cross-encoder reranker configuration for search result rescoring.
+
+    Optional second-stage relevance scoring of RRF-fused search results using
+    the RW InferenceEngine ``/v1/rerank`` endpoint. When ``ENABLED`` is false
+    (or the reranker is unreachable), search falls back to RRF order.
+    """
+
+    model_config = SettingsConfigDict(env_prefix="RERANKER_", extra="ignore")
+
+    ENABLED: bool = True
+    ENDPOINT: str = "http://localhost:8300/v1/rerank"
+    MODEL: str = "ms-marco-MiniLM-L-6-v2"
+    TOP_K: Annotated[int, Field(default=50, ge=1, le=500)] = 50
+    TIMEOUT_SECONDS: Annotated[float, Field(default=30.0, gt=0.0)] = 30.0
 
 
 # Reasoning levels for dialectic - defined here to avoid circular imports with schemas
@@ -1502,6 +1520,7 @@ class AppSettings(HonchoSettings):
     DREAM: DreamSettings = Field(default_factory=DreamSettings)
     VECTOR_STORE: VectorStoreSettings = Field(default_factory=VectorStoreSettings)
     TRACE_VIEWER: TraceViewerSettings = Field(default_factory=TraceViewerSettings)
+    RERANKER: RerankerSettings = Field(default_factory=RerankerSettings)
 
     @field_validator("LOG_LEVEL")
     def validate_log_level(cls, v: str) -> str:
