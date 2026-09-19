@@ -125,6 +125,7 @@ async def lifespan(_: FastAPI):
     await initialize_telemetry_async()
 
     # Expose DB connection-pool stats for this API instance (no-op if metrics off)
+from src.deriver.in_process import InProcessQueueManager
     register_db_pool_collector("api")
     register_db_query_instrumentation("api")
     register_db_connection_instrumentation("api")
@@ -154,6 +155,14 @@ async def lifespan(_: FastAPI):
         await deriver_metrics_poller.start()
     except Exception as e:
         logger.error("Failed to start backlog metrics poller: %s", e)
+
+    # Start in-process deriver if configured
+    in_process_deriver: InProcessQueueManager | None = None
+    if settings.DERIVER.IN_PROCESS_MODE:
+        in_process_deriver = InProcessQueueManager()
+        await in_process_deriver.start()
+        app.state.in_process_deriver = in_process_deriver
+        logger.info("In-process deriver started (IN_PROCESS_MODE=true)")
 
     reconciler_scheduler = None
     if settings.DERIVER.SCHEDULER == "api":
