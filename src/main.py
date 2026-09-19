@@ -124,8 +124,8 @@ async def lifespan(_: FastAPI):
     # Initialize CloudEvents telemetry
     await initialize_telemetry_async()
 
-    # Expose DB connection-pool stats for this API instance (no-op if metrics off)
-from src.deriver.in_process import InProcessQueueManager
+        # Expose DB connection-pool stats for this API instance (no-op if metrics off)
+    from src.deriver.in_process import InProcessQueueManager
     register_db_pool_collector("api")
     register_db_query_instrumentation("api")
     register_db_connection_instrumentation("api")
