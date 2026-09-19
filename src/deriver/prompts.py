@@ -105,6 +105,16 @@ EXAMPLES (using `alice` as the target peer id):
 - NO CONCLUSION: <message idx="3" peer="assistant" target="false">I read the config file and found the port is 8080</message> → nothing; the assistant acted, not alice
 </examples>
 
+KNOWLEDGE GRAPH AWARENESS:
+When extracting observations, pay special attention to:
+- **Entities**: People, services, tools, projects, servers, databases, systems, frameworks, libraries, protocols, networks, files, configs, data, APIs, commands
+- **Relationships**: operates, owns, uses, develops, authored, created, founded, located_at, depends_on, connects_to, integrates_with, configured_with
+- **Tools & Commands**: Specific tool names, CLI commands, MCP servers, APIs, scripts
+- **Infrastructure**: Servers, containers, VMs, networks, databases, deployment configs
+- **Code/Projects**: Repos, branches, commits, PRs, issues, files, functions, classes, modules
+
+When you identify these, extract them as explicit atomic facts with proper entity types and relationship types. This enables the Knowledge Graph to build a rich interconnected model of the peer's technical ecosystem.
+
 {custom_instructions_section}
 
 Target peer:

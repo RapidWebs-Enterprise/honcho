@@ -25,7 +25,7 @@ if not os.getenv("PYTHON_DOTENV_DISABLED"):
 logger = logging.getLogger(__name__)
 
 ModelTransport = Literal["anthropic", "openai", "gemini"]
-EmbeddingTransport = Literal["openai", "gemini"]
+EmbeddingTransport = Literal["openai", "gemini", "rw_inference"]
 EmbeddingDimensionsMode = Literal["auto", "always", "never"]
 EmbeddingEncodingFormat = Literal["float", "base64"]
 EmbeddingEncodingFormatMode = Literal["auto", "float", "base64"]
@@ -42,6 +42,11 @@ _EMBEDDING_BASE64_CAPABLE_HOSTS: frozenset[str] = frozenset({"api.openai.com"})
 def _default_embedding_model_for_transport(transport: EmbeddingTransport) -> str:
     if transport == "gemini":
         return "gemini-embedding-001"
+    if transport == "rw_inference":
+        # RAPIDWEBS FORK: RW InferenceEngine serves bge-small-en-v1.5 by default.
+        # This produces 384-dim vectors, which must match EMBEDDING_VECTOR_DIMENSIONS.
+        # See RAPIDWEBS.README.md for configuration requirements.
+        return "bge-small-en-v1.5"
     return "text-embedding-3-small"
 
 
@@ -554,6 +559,11 @@ def _default_embedding_api_key(transport: EmbeddingTransport) -> str | None:
         return settings.LLM.OPENAI_API_KEY
     if transport == "gemini":
         return settings.LLM.GEMINI_API_KEY
+    if transport == "rw_inference":
+        # RAPIDWEBS FORK: RW InferenceEngine runs locally on the LAN with no API key.
+        # Authentication is handled by network-level access control.
+        return None
+    return None
 
 
 def resolve_embedding_model_config(
@@ -640,7 +650,7 @@ class TomlConfigSettingsSource(PydanticBaseSettingsSource):
         super().__init__(settings_cls)
 
     SECTION_MAP: ClassVar[dict[str, str]] = {
-        "DB": "db",
+        "DB": "database",
         "AUTH": "auth",
         "SENTRY": "sentry",
         "CACHE": "cache",
@@ -650,6 +660,7 @@ class TomlConfigSettingsSource(PydanticBaseSettingsSource):
         "PEER_CARD": "peer_card",
         "DIALECTIC": "dialectic",
         "SUMMARY": "summary",
+        "RERANKER": "reranker",
         "WEBHOOK": "webhook",
         "DREAM": "dream",
         "VECTOR_STORE": "vector_store",
@@ -969,8 +980,21 @@ class DeriverSettings(HonchoSettings):
         1800
     )
 
-    # When enabled, bypasses the batch token threshold and processes work immediately
-    FLUSH_ENABLED: bool = False
+    # When enabled, bypasses the batch token threshold and processes work immediately.
+    # RAPIDWEBS FORK: Changed default from False to True. The upstream default (False)
+    # batches representation work until 1024 tokens accumulate, which never happens in
+    # low-volume self-hosted deployments — causing observations to silently never get
+    # written. Self-hosted users should always have FLUSH_ENABLED=true so the deriver
+    # processes work units as soon as any new messages arrive, even if they're small.
+    # See RAPIDWEBS.README.md for the full rationale.
+    FLUSH_ENABLED: bool = True
+
+    # When enabled, runs the deriver as an asyncio background task inside the
+    # API process instead of as a separate worker process. Eliminates the need
+    # for a separate `python -m src.deriver` process. The queue is still
+    # PostgreSQL-backed (no Redis required for queue operations).
+    # Default: False for backward compatibility.
+    IN_PROCESS_MODE: bool = False
 
     BACKLOG_METRICS_POLL_INTERVAL_SECONDS: Annotated[int, Field(default=30, ge=1)] = 30
 
@@ -1000,6 +1024,32 @@ class PeerCardSettings(HonchoSettings):
     model_config = SettingsConfigDict(env_prefix="PEER_CARD_", extra="ignore")  # pyright: ignore
 
     ENABLED: bool = True
+
+
+class ExtractionSettings(HonchoSettings):
+    model_config = SettingsConfigDict(env_prefix="EXTRACTION_", extra="ignore")
+
+    ENABLED: bool = True
+    BATCH_SIZE: Annotated[int, Field(default=50, ge=1, le=500)] = 50
+    FLUSH_INTERVAL_SECONDS: Annotated[float, Field(default=30.0, ge=0.0, le=300.0)] = 30.0
+    MAX_CONCURRENT: Annotated[int, Field(default=2, ge=1, le=10)] = 2
+
+
+class RerankerSettings(HonchoSettings):
+    """Cross-encoder reranker configuration for search result rescoring.
+
+    Optional second-stage relevance scoring of RRF-fused search results using
+    the RW InferenceEngine ``/v1/rerank`` endpoint. When ``ENABLED`` is false
+    (or the reranker is unreachable), search falls back to RRF order.
+    """
+
+    model_config = SettingsConfigDict(env_prefix="RERANKER_", extra="ignore")
+
+    ENABLED: bool = True
+    ENDPOINT: str = "http://localhost:8300/v1/rerank"
+    MODEL: str = "ms-marco-MiniLM-L-6-v2"
+    TOP_K: Annotated[int, Field(default=50, ge=1, le=500)] = 50
+    TIMEOUT_SECONDS: Annotated[float, Field(default=30.0, gt=0.0)] = 30.0
 
 
 # Reasoning levels for dialectic - defined here to avoid circular imports with schemas.
@@ -1558,6 +1608,7 @@ class AppSettings(HonchoSettings):
     LLM: LLMSettings = Field(default_factory=LLMSettings)
     EMBEDDING: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
     DERIVER: DeriverSettings = Field(default_factory=DeriverSettings)
+    EXTRACTION: ExtractionSettings = Field(default_factory=ExtractionSettings)
     DIALECTIC: DialecticSettings = Field(default_factory=DialecticSettings)
     PEER_CARD: PeerCardSettings = Field(default_factory=PeerCardSettings)
     SUMMARY: SummarySettings = Field(default_factory=SummarySettings)
@@ -1568,6 +1619,7 @@ class AppSettings(HonchoSettings):
     DREAM: DreamSettings = Field(default_factory=DreamSettings)
     VECTOR_STORE: VectorStoreSettings = Field(default_factory=VectorStoreSettings)
     TRACE_VIEWER: TraceViewerSettings = Field(default_factory=TraceViewerSettings)
+    RERANKER: RerankerSettings = Field(default_factory=RerankerSettings)
 
     @field_validator("LOG_LEVEL")
     def validate_log_level(cls, v: str) -> str:

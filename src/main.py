@@ -24,6 +24,7 @@ from src.db import (
     register_db_query_instrumentation,
     request_context,
 )
+from src.kg.extraction_queue import ExtractionQueue, init_extraction_queue, shutdown_extraction_queue
 from src.exceptions import HonchoException
 from src.reconciler import ReconcilerScheduler, set_reconciler_scheduler
 from src.routers import (
@@ -37,6 +38,7 @@ from src.routers import (
     webhooks,
     workspaces,
 )
+from src.routers import kg as kg_router
 from src.startup import validate_embedding_schema
 from src.telemetry import (
     initialize_telemetry_async,
@@ -162,9 +164,30 @@ async def lifespan(_: FastAPI):
         except Exception as e:
             logger.error("Failed to start reconciler scheduler: %s", e)
 
+    # Start KG extraction queue if enabled (RAPIDWEBS FORK)
+    extraction_queue: ExtractionQueue | None = None
+    if settings.EXTRACTION_ENABLED:
+        extraction_queue = await init_extraction_queue()
+        app.state.extraction_queue = extraction_queue
+        logger.info("KG Extraction queue started (EXTRACTION_ENABLED=true)")
+
     try:
         yield
     finally:
+        # Stop in-process deriver if running
+        if in_process_deriver:
+            await in_process_deriver.stop()
+            logger.info("In-process deriver stopped")
+
+        # Stop extraction queue if running
+        if extraction_queue:
+            await shutdown_extraction_queue()
+            logger.info("Extraction queue stopped")
+
+        # Shutdown CPU-bound executor (used by in-process deriver)
+        from src.utils.cpu_executor import shutdown_executor
+        shutdown_executor()
+
         # Import here to avoid circular import at module load time
         from src.vector_store import close_external_vector_store
 
@@ -222,15 +245,32 @@ app.include_router(conclusions.router, prefix="/v3")
 app.include_router(keys.router, prefix="/v3")
 app.include_router(webhooks.router, prefix="/v3")
 app.include_router(deriver_metrics.router)
+app.include_router(kg_router.router)  # RAPIDWEBS FORK: KG API endpoints
 
 # Prometheus metrics endpoint
 app.add_route("/metrics", metrics_endpoint, methods=["GET"])
 
 
 @app.get("/health")
-async def health_check():
-    """Health check endpoint for monitoring and container orchestration."""
-    return {"status": "ok"}
+async def health_check(request: Request):
+    """Health check endpoint for monitoring and container orchestration.
+
+    When IN_PROCESS_MODE=true, includes in-process deriver status:
+    - deriver.status: healthy or degraded
+    - deriver.uptime_seconds: how long the deriver has been running
+    - deriver.pending_work_units: items waiting in the queue
+    """
+    health = {"status": "ok"}
+
+    # Include in-process deriver health if configured
+    if settings.DERIVER.IN_PROCESS_MODE:
+        deriver = getattr(request.app.state, "in_process_deriver", None)
+        if deriver:
+            health["deriver"] = deriver.status
+            if deriver.status.get("status") != "healthy":
+                health["status"] = "degraded"
+
+    return health
 
 
 # Global exception handlers

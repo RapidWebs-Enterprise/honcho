@@ -15,6 +15,13 @@ from src.config import settings
 from src.dependencies import tracked_db
 from src.embedding_client import EmbeddingTokenLimitError, embedding_client
 from src.exceptions import ResourceNotFoundException
+from src.kg.kg_query_tool import (
+    handle_kg_entity_search,
+    handle_kg_peer_entities,
+    handle_kg_query,
+    handle_kg_subgraph,
+    handle_kg_traverse,
+)
 from src.models import Document
 from src.schemas import ResolvedConfiguration
 from src.telemetry.events import (
@@ -559,6 +566,172 @@ TOOLS: dict[str, dict[str, Any]] = {
             "properties": {},
         },
     },
+    "kg_query": {
+        "name": "kg_query",
+        "description": (
+            "Query the Knowledge Graph to find relationships between entities "
+            "(services, tools, people, projects, concepts). Use this when the "
+            "user asks about how things connect or depend on each other."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "entity": {
+                    "type": "string",
+                    "description": "Starting entity name",
+                },
+                "query_type": {
+                    "type": "string",
+                    "enum": ["traverse", "find_path"],
+                },
+                "target_entity": {
+                    "type": "string",
+                    "description": "Required for find_path queries",
+                },
+                "max_depth": {
+                    "type": "integer",
+                    "default": 3,
+                },
+                "relationship_types": {
+                    "type": "string",
+                    "description": "Optional comma-separated filter",
+                },
+            },
+            "required": ["entity", "query_type"],
+        },
+    },
+    "kg_entity_search": {
+        "name": "kg_entity_search",
+        "description": (
+        "Search Knowledge Graph entities by name or alias (fuzzy match). "
+        "Use to discover what entities exist before traversing the graph. "
+        "Returns entity name, type, aliases, confidence, mention_count."
+        ),
+        "input_schema": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "Entity name or alias to search (min 2 chars)",
+            },
+            "entity_type": {
+                "type": "string",
+                "description": "Filter by type (person, service, tool, project, concept, location, organization, event)",
+            },
+            "min_confidence": {
+                "type": "number",
+                "description": "Minimum confidence (0-1)",
+                "default": 0.3,
+            },
+            "limit": {
+                "type": "integer",
+                "description": "Max results",
+                "default": 20,
+                "maximum": 100,
+            },
+        },
+        "required": ["query"],
+        },
+        },
+    "kg_peer_entities": {
+        "name": "kg_peer_entities",
+        "description": (
+        "Get all Knowledge Graph entities linked to a specific peer. "
+        "Shows what entities this peer has mentioned or is associated with. "
+        "Returns entity name, type, relationship type, confidence."
+        ),
+        "input_schema": {
+        "type": "object",
+        "properties": {
+            "peer_name": {
+                "type": "string",
+                "description": "Peer name to get entities for (e.g., 'sysop', 'hermes')",
+            },
+            "relationship_types": {
+                "type": "string",
+                "description": "Comma-separated relationship types to filter (e.g., 'manages,depends_on')",
+            },
+            "limit": {
+                "type": "integer",
+                "default": 50,
+                "maximum": 200,
+            },
+        },
+        "required": ["peer_name"],
+        },
+        },
+    "kg_traverse": {
+        "name": "kg_traverse",
+        "description": (
+        "Traverse the Knowledge Graph from a starting entity using "
+        "breadth-first search. Use when the user asks 'what connects to X?' "
+        "or 'how does X relate to Y?'. Max depth clamped to 6."
+        ),
+        "input_schema": {
+        "type": "object",
+        "properties": {
+            "entity": {
+                "type": "string",
+                "description": "Starting entity name or alias",
+            },
+            "max_depth": {
+                "type": "integer",
+                "description": "Max traversal hops (1-6)",
+                "default": 2,
+                "minimum": 1,
+                "maximum": 6,
+            },
+            "relationship_types": {
+                "type": "string",
+                "description": "Comma-separated relationship types to filter (e.g., 'depends_on,manages')",
+            },
+            "entity_types": {
+                "type": "string",
+                "description": "Comma-separated entity types to filter (e.g., 'service,tool')",
+            },
+            "min_confidence": {
+                "type": "number",
+                "default": 0.5,
+            },
+            "limit": {
+                "type": "integer",
+                "default": 50,
+                "maximum": 200,
+            },
+        },
+        "required": ["entity"],
+        },
+        },
+    "kg_subgraph": {
+        "name": "kg_subgraph",
+        "description": (
+        "Extract a neighborhood subgraph around an entity for context "
+        "injection or visualization. Returns entities + relationships "
+        "as a structured graph. Depth clamped to 3."
+        ),
+        "input_schema": {
+        "type": "object",
+        "properties": {
+            "entity": {
+                "type": "string",
+                "description": "Center entity name or alias",
+            },
+            "depth": {
+                "type": "integer",
+                "description": "Neighborhood depth (1-3)",
+                "default": 1,
+                "minimum": 1,
+                "maximum": 3,
+            },
+            "limit": {
+                "type": "integer",
+                "default": 100,
+                "maximum": 200,
+            },
+        },
+        "required": ["entity"],
+        },
+        },
     "search_memory": {
         "name": "search_memory",
         "description": "Search for observations in memory using semantic similarity. Use this to find relevant information about the peer when you need to recall specific details.",
@@ -874,6 +1047,11 @@ DIALECTIC_TOOLS: list[dict[str, Any]] = [
     TOOLS["get_messages_by_date_range"],  # For temporal/date-based queries
     TOOLS["search_messages_temporal"],  # Semantic search + date filtering
     TOOLS["get_reasoning_chain"],  # Traverse reasoning trees
+    TOOLS["kg_query"],  # Knowledge Graph entity-relationship queries
+    TOOLS["kg_entity_search"],  # KG entity lookup by name/alias
+    TOOLS["kg_peer_entities"],  # KG entities linked to a peer
+    TOOLS["kg_traverse"],  # KG BFS graph walk
+    TOOLS["kg_subgraph"],  # KG neighborhood subgraph
 ]
 
 # Minimal tools for dialectic agent at "minimal" reasoning level
@@ -2772,6 +2950,11 @@ _TOOL_HANDLERS: dict[str, Callable[[ToolContext, dict[str, Any]], Any]] = {
     "finish_consolidation": _handle_finish_consolidation,
     "extract_preferences": _handle_extract_preferences,
     "get_reasoning_chain": _handle_get_reasoning_chain,
+    "kg_query": handle_kg_query,
+    "kg_entity_search": handle_kg_entity_search,
+    "kg_peer_entities": handle_kg_peer_entities,
+    "kg_traverse": handle_kg_traverse,
+    "kg_subgraph": handle_kg_subgraph,
 }
 
 

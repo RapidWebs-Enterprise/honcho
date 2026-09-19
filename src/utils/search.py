@@ -6,6 +6,8 @@ of each item's rank in each list, then summing these reciprocal ranks.
 """
 
 import re
+import logging
+
 from typing import Any, TypeVar
 
 from sqlalchemy import Select, and_, func, or_, select
@@ -15,6 +17,7 @@ from src import models
 from src.config import settings
 from src.dependencies import tracked_db
 from src.embedding_client import EmbeddingTokenLimitError, embedding_client
+from src.reranker_client import get_reranker_client
 from src.exceptions import ValidationException
 from src.models import session_peers_table
 from src.telemetry.events import EmbeddingCallPurpose
@@ -22,6 +25,8 @@ from src.utils.filter import apply_filter
 from src.utils.formatting import ILIKE_ESCAPE_CHAR, escape_ilike_pattern
 from src.utils.types import embedding_call_purpose
 from src.vector_store import get_external_vector_store
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -446,7 +451,30 @@ async def search(
         search_results.append(fulltext_results)
 
         if len(search_results) > 1:
-            return reciprocal_rank_fusion(*search_results, limit=limit)
+            fused = reciprocal_rank_fusion(*search_results, limit=limit)
+
+            # FA-01: Reranker runs inside _run_search() closure (before message expunge)
+            if settings.RERANKER.ENABLED and len(fused) > 1:
+                try:
+                    reranker = await get_reranker_client()
+                    rerank_limit = min(settings.RERANKER.TOP_K, len(fused))
+                    if rerank_limit > 1:
+                        doc_texts = [msg.content for msg in fused[:rerank_limit]]
+                        scores = await reranker.rerank(query, doc_texts, top_k=rerank_limit)
+
+                        # Combine and sort by reranker score (descending)
+                        scored = list(zip(fused[:rerank_limit], scores))
+                        scored.sort(key=lambda x: x[1], reverse=True)
+                        reranked = [doc for doc, _ in scored]
+
+                        # RA-01: Un-reranked docs stay in RRF order at the tail
+                        fused = reranked + fused[rerank_limit:]
+                except ValueError as e:
+                    logger.warning("Reranker validation error: %s", e)
+                except Exception as e:
+                    logger.warning("Reranking failed, using RRF order: %s", e)
+            return fused
+
         if len(search_results) == 1:
             return search_results[0][:limit]
         return []

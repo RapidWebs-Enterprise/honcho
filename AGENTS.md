@@ -316,3 +316,93 @@ src/
 ### Notes
 
 - Always use `uv run` or `uv` to prefix any commands related to python to ensure you use the virtual environment
+
+---
+
+## RAPIDWEBS FORK — Custom Changes
+
+This repository is a fork of `plastic-labs/honcho` maintained by RapidWebs Enterprise.
+The following changes are unique to our fork. See `RAPIDWEBS.README.md` for the full
+changelog with rationale and configuration details.
+
+### 1. DERIVER_FLUSH_ENABLED defaults to True
+
+**Files:** `src/config.py:888`
+
+The upstream default (`False`) batches representation work until 1024 tokens
+accumulate, which never happens in low-volume self-hosted deployments — memory
+pipeline appears broken. We changed the default to `True` so work processes
+immediately.
+
+### 2. Added "rw_inference" embedding transport
+
+**Files:**
+- `src/config.py:26` — `EmbeddingTransport` type
+- `src/config.py:38` — default model
+- `src/config.py:490` — default API key (None)
+- `src/embedding_client.py:198` — client init
+
+Added `"rw_inference"` as a named embedding transport for RW InferenceEngine,
+a local Rust/ONNX server providing bge-small-en-v1.5 embeddings and
+cross-encoder reranking. Uses OpenAI-compatible API without requiring an API key.
+
+**Required config:**
+```env
+EMBEDDING_MODEL_CONFIG__TRANSPORT=rw_inference
+EMBEDDING_MODEL_CONFIG__OVERRIDES__BASE_URL=http://<rw-ie-host>:8300/v1
+EMBEDDING_VECTOR_DIMENSIONS=384
+```
+
+### 3. Knowledge Graph Overlay (SPEC-001)
+
+**Summary:** Added a full knowledge graph layer that extracts entities and
+relationships from messages via LLM structured output. Includes BFS traversal,
+pathfinding, subgraph export, 7 API endpoints, and a Dialectic `kg_query` tool.
+
+**Files:** `src/kg/`, `src/routers/kg.py`, `src/schemas/kg.py`,
+`migrations/versions/kg_001_add_kg_tables.py`
+
+**Key design decisions:**
+- Extraction is a SEPARATE async step from observation extraction (not coupled)
+- Entity resolution uses pg_trgm trigram similarity for fuzzy matching
+- Relationship dedup uses INSERT ... ON CONFLICT DO NOTHING (safe under concurrency)
+- All timestamps are timezone-aware (DateTime(timezone=True))
+- Dormant entities are excluded from normal queries but not deleted
+
+**API endpoints:**
+```
+GET  /v3/workspaces/{w}/kg/traverse     — BFS traversal with compound filters
+GET  /v3/workspaces/{w}/kg/entities     — Fuzzy entity search
+GET  /v3/workspaces/{w}/kg/path         — Shortest path finding
+GET  /v3/workspaces/{w}/kg/subgraph     — Neighborhood export
+GET  /v3/workspaces/{w}/kg/peer-entities — Peer→entity queries
+POST /v3/workspaces/{w}/kg/auto-link    — Auto-link unlinked entities
+PATCH /v3/workspaces/{w}/kg/entities/{id} — Human correction
+```
+
+**Dependencies:** pg_trgm PostgreSQL extension (`CREATE EXTENSION pg_trgm`)
+
+### 4. In-Process Deriver Mode (SPEC-002)
+
+**Summary:** Added `DERIVER_IN_PROCESS_MODE=true` flag that runs the QueueManager
+polling loop as an asyncio background task inside the API process. Eliminates
+the need for a separate `python -m src.deriver` process.
+
+**Files:** `src/deriver/in_process.py`, `src/config.py`, `src/main.py`,
+`src/utils/cpu_executor.py`
+
+**Key design decisions:**
+- Queue is PG-backed, not Redis-backed (no InMemoryQueue needed)
+- InProcessQueueManager is a subclass of QueueManager, not a replacement
+- Signal handlers and Sentry init are skipped (API handles both)
+- CPU-bound work runs in a dedicated ThreadPoolExecutor
+- Redis degradation to in-memory cache is already handled by cache client
+
+**Configuration:**
+```env
+DERIVER_IN_PROCESS_MODE=true
+# Optional tuning:
+DERIVER_IN_PROCESS_POLL_INTERVAL_SECONDS=0.5
+DERIVER_IN_PROCESS_MAX_QUEUE_SIZE=1000
+DERIVER_IN_PROCESS_WORK_UNIT_TIMEOUT_SECONDS=30.0
+```

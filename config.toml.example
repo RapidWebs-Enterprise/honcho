@@ -296,3 +296,19 @@ LANCEDB_PATH = "./lancedb_data"
 # QDRANT_PREFIX = ""
 # QDRANT_TIMEOUT = 30
 RECONCILIATION_INTERVAL_SECONDS = 300
+
+# Reranker settings
+[reranker]
+ENABLED = false
+MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+BASE_URL = "http://localhost:8000/v1"  # Local reranker server (e.g., cross-encoder service)
+API_KEY = ""
+TOP_K = 20
+TIMEOUT_SECONDS = 30.0
+# Optional: max total characters of documents to send per rerank call (protects server)
+MAX_TOTAL_CHARS = 50000
+
+# Optional endpoint overrides
+# [reranker.overrides]
+# base_url = "https://reranker-proxy.internal.example/v1"
+# api_key_env = "RERANKER_CUSTOM_API_KEY"
