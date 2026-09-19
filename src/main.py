@@ -15,17 +15,25 @@ from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
 
 from src._version import HONCHO_VERSION
+from src.backlog import DeriverMetricsPoller
 from src.cache.client import close_cache, init_cache
 from src.config import settings
-from src.db import engine, register_db_query_instrumentation, request_context
-from src.deriver.in_process import InProcessQueueManager
+from src.db import (
+    engine,
+    register_db_connection_instrumentation,
+    register_db_query_instrumentation,
+    request_context,
+)
 from src.kg.extraction_queue import ExtractionQueue, init_extraction_queue, shutdown_extraction_queue
 from src.exceptions import HonchoException
+from src.reconciler import ReconcilerScheduler, set_reconciler_scheduler
 from src.routers import (
     conclusions,
+    deriver_metrics,
     keys,
     messages,
     peers,
+    scopes,
     sessions,
     webhooks,
     workspaces,
@@ -38,6 +46,14 @@ from src.telemetry import (
     prometheus_metrics,
     register_db_pool_collector,
     shutdown_telemetry,
+)
+from src.telemetry.client_context import (
+    HEADER_AGENT_MODEL,
+    HEADER_HOST,
+    HEADER_PLUGIN,
+    HEADER_USER_AGENT,
+    reset_client_context,
+    set_client_context,
 )
 from src.telemetry.logging import get_route_template
 from src.telemetry.sentry import initialize_sentry
@@ -111,6 +127,13 @@ async def lifespan(_: FastAPI):
     # Expose DB connection-pool stats for this API instance (no-op if metrics off)
     register_db_pool_collector("api")
     register_db_query_instrumentation("api")
+    register_db_connection_instrumentation("api")
+
+    # region ai
+    # Zero-init bounded-label counters so a missing series signals a broken scrape,
+    # not "no events" — see initialize_bounded_metrics. No-op if metrics off.
+    # endregion
+    prometheus_metrics.initialize_bounded_metrics(instance_type="api")
 
     # Validate embedding schema before serving any traffic. Fails closed: if
     # the configured EMBEDDING_VECTOR_DIMENSIONS does not match the physical
@@ -125,20 +148,28 @@ async def lifespan(_: FastAPI):
             "Error initializing cache in api process; proceeding without cache: %s", e
         )
 
-    # Start in-process deriver if configured
-    in_process_deriver: InProcessQueueManager | None = None
-    if settings.DERIVER.IN_PROCESS_MODE:
-        in_process_deriver = InProcessQueueManager()
-        await in_process_deriver.start()
-        app.state.in_process_deriver = in_process_deriver
-        logger.info("In-process deriver started (IN_PROCESS_MODE=true)")
+    deriver_metrics_poller = DeriverMetricsPoller()
+    deriver_metrics.set_deriver_metrics_poller(deriver_metrics_poller)
+    try:
+        await deriver_metrics_poller.start()
+    except Exception as e:
+        logger.error("Failed to start backlog metrics poller: %s", e)
 
-    # Start extraction queue if enabled
+    reconciler_scheduler = None
+    if settings.DERIVER.SCHEDULER == "api":
+        reconciler_scheduler = ReconcilerScheduler()
+        set_reconciler_scheduler(reconciler_scheduler)
+        try:
+            await reconciler_scheduler.start()
+        except Exception as e:
+            logger.error("Failed to start reconciler scheduler: %s", e)
+
+    # Start KG extraction queue if enabled (RAPIDWEBS FORK)
     extraction_queue: ExtractionQueue | None = None
-    if settings.EXTRACTION_ENABLED:
+    if settings.EXTRACTION.ENABLED:
         extraction_queue = await init_extraction_queue()
         app.state.extraction_queue = extraction_queue
-        logger.info("Extraction queue started (EXTRACTION_ENABLED=true)")
+        logger.info("KG Extraction queue started (EXTRACTION_ENABLED=true)")
 
     try:
         yield
@@ -160,6 +191,10 @@ async def lifespan(_: FastAPI):
         # Import here to avoid circular import at module load time
         from src.vector_store import close_external_vector_store
 
+        if reconciler_scheduler is not None:
+            await reconciler_scheduler.shutdown()
+        await deriver_metrics_poller.shutdown()
+        deriver_metrics.set_deriver_metrics_poller(None)
         await close_external_vector_store()
         await close_cache()
         await engine.dispose()
@@ -183,8 +218,9 @@ app = FastAPI(
         "email": "hello@plasticlabs.ai",
     },
     license_info={
+        # The 3.1 License Object treats `identifier` and `url` as mutually
+        # exclusive, and emitting both makes the schema fail validation.
         "name": "GNU Affero General Public License v3.0",
-        "identifier": "AGPL-3.0-only",
         "url": "https://github.com/plastic-labs/honcho/blob/main/LICENSE",
     },
 )
@@ -203,11 +239,13 @@ add_pagination(app)
 app.include_router(workspaces.router, prefix="/v3")
 app.include_router(peers.router, prefix="/v3")
 app.include_router(sessions.router, prefix="/v3")
+app.include_router(scopes.router, prefix="/v3")
 app.include_router(messages.router, prefix="/v3")
 app.include_router(conclusions.router, prefix="/v3")
 app.include_router(keys.router, prefix="/v3")
 app.include_router(webhooks.router, prefix="/v3")
-app.include_router(kg_router.router)
+app.include_router(deriver_metrics.router)
+app.include_router(kg_router.router)  # RAPIDWEBS FORK: KG API endpoints
 
 # Prometheus metrics endpoint
 app.add_route("/metrics", metrics_endpoint, methods=["GET"])
@@ -216,7 +254,7 @@ app.add_route("/metrics", metrics_endpoint, methods=["GET"])
 @app.get("/health")
 async def health_check(request: Request):
     """Health check endpoint for monitoring and container orchestration.
-    
+
     When IN_PROCESS_MODE=true, includes in-process deriver status:
     - deriver.status: healthy or degraded
     - deriver.uptime_seconds: how long the deriver has been running
@@ -271,6 +309,14 @@ async def track_request(
     # Store in request state and context var
     request.state.request_id = request_id
     token = request_context.set(f"api:{request_id}")
+    # Optional client identity headers; the telemetry emitter injects these
+    # into every event body emitted during this request.
+    client_tokens = set_client_context(
+        host=request.headers.get(HEADER_HOST),
+        plugin=request.headers.get(HEADER_PLUGIN),
+        agent_model=request.headers.get(HEADER_AGENT_MODEL),
+        user_agent=request.headers.get(HEADER_USER_AGENT),
+    )
 
     try:
         start_time = time.perf_counter()
@@ -288,4 +334,5 @@ async def track_request(
 
         return response
     finally:
+        reset_client_context(client_tokens)
         request_context.reset(token)
