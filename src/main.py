@@ -166,7 +166,7 @@ async def lifespan(_: FastAPI):
 
     # Start KG extraction queue if enabled (RAPIDWEBS FORK)
     extraction_queue: ExtractionQueue | None = None
-    if settings.EXTRACTION_ENABLED:
+    if settings.EXTRACTION.ENABLED:
         extraction_queue = await init_extraction_queue()
         app.state.extraction_queue = extraction_queue
         logger.info("KG Extraction queue started (EXTRACTION_ENABLED=true)")
