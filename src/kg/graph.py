@@ -36,6 +36,7 @@ async def traverse(
     after: datetime | None = None,
     min_confidence: float = 0.0,
     limit: int = 100,
+    direction: str = "outgoing",  # "outgoing", "incoming", "both"
 ) -> list[dict]:
     """BFS traversal from a starting entity through the KG.
     
@@ -44,6 +45,9 @@ async def traverse(
     to other entities at the next depth level.
     
     Cycle detection via visited set of entity IDs.
+    
+    Args:
+        direction: Traversal direction - "outgoing" (default), "incoming", or "both"
     """
     # Resolve starting entity
     stmt = select(KGEntity).where(
@@ -76,12 +80,28 @@ async def traverse(
         if depth >= max_depth:
             continue
 
-        # Fetch outgoing relationships from current entity
-        rel_query = select(KGRelationship).where(
-            KGRelationship.workspace_name == workspace_name,
-            KGRelationship.source_entity_id == current_id,
-            *type_filter,
-        )
+        # Build relationship query based on direction
+        if direction == "incoming":
+            rel_query = select(KGRelationship).where(
+                KGRelationship.workspace_name == workspace_name,
+                KGRelationship.target_entity_id == current_id,
+                *type_filter,
+            )
+        elif direction == "both":
+            rel_query = select(KGRelationship).where(
+                KGRelationship.workspace_name == workspace_name,
+                or_(
+                    KGRelationship.source_entity_id == current_id,
+                    KGRelationship.target_entity_id == current_id,
+                ),
+                *type_filter,
+            )
+        else:  # "outgoing" (default)
+            rel_query = select(KGRelationship).where(
+                KGRelationship.workspace_name == workspace_name,
+                KGRelationship.source_entity_id == current_id,
+                *type_filter,
+            )
 
         if before:
             rel_query = rel_query.where(
@@ -101,14 +121,20 @@ async def traverse(
         relationships = result.scalars().all()
 
         for rel in relationships:
-            target_id = rel.target_entity_id
+            # Determine neighbor based on direction
+            if direction == "incoming":
+                neighbor_id = rel.source_entity_id
+            elif direction == "both":
+                neighbor_id = rel.target_entity_id if rel.source_entity_id == current_id else rel.source_entity_id
+            else:  # "outgoing"
+                neighbor_id = rel.target_entity_id
 
-            if target_id not in visited:
-                visited.add(target_id)
-                queue.append((target_id, depth + 1))
+            if neighbor_id not in visited:
+                visited.add(neighbor_id)
+                queue.append((neighbor_id, depth + 1))
 
                 # Fetch target entity
-                ent_stmt = select(KGEntity).where(KGEntity.id == target_id)
+                ent_stmt = select(KGEntity).where(KGEntity.id == neighbor_id)
                 ent_result = await db.execute(ent_stmt)
                 target_entity = ent_result.scalar_one_or_none()
 

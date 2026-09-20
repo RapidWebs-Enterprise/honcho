@@ -40,12 +40,16 @@ async def kg_traverse(
     after: datetime | None = Query(default=None),
     min_confidence: float = Query(default=0.0, ge=0.0, le=1.0),
     limit: int = Query(default=100, ge=1, le=500),
+    direction: str = Query(default="outgoing", pattern="^(outgoing|incoming|both)$"),
     db_session: AsyncSession = Depends(get_read_db),
 ):
     """BFS traversal from an entity through the knowledge graph.
     
     Returns entities and relationships at each depth level, filtered by
     optional relationship types, entity types, time bounds, and confidence.
+    
+    Args:
+        direction: Traversal direction - "outgoing" (default), "incoming", or "both"
     """
     parsed_rel_types = (
         relationship_types.split(",") if relationship_types else None
@@ -65,6 +69,7 @@ async def kg_traverse(
         after=after,
         min_confidence=min_confidence,
         limit=limit,
+        direction=direction,
     )
     return {"results": results, "total": len(results)}
 

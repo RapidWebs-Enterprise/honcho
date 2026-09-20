@@ -38,11 +38,17 @@ KG_QUERY_TOOL_DEFINITION: dict[str, Any] = {
                 "description": "Required when query_type='find_path'. The target entity to find a path to.",
             },
             "max_depth": {
-                "type": "integer",
-                "description": "Maximum traversal depth (default: 3, max: 6)",
-                "default": 3,
-            },
-            "relationship_types": {
+                        "type": "integer",
+                        "description": "Maximum traversal depth (default: 3, max: 6)",
+                        "default": 3,
+                    },
+                    "direction": {
+                        "type": "string",
+                        "enum": ["outgoing", "incoming", "both"],
+                        "description": "Traversal direction: 'outgoing' (default), 'incoming', or 'both'",
+                        "default": "outgoing",
+                    },
+                    "relationship_types": {
                 "type": "string",
                 "description": "Optional comma-separated list of relationship types to filter by (e.g., 'depends_on,manages')",
             },
@@ -66,6 +72,9 @@ async def handle_kg_query(
     query_type = tool_input.get("query_type", "traverse")
     target = tool_input.get("target_entity", "")
     max_depth = min(tool_input.get("max_depth", 3), 6)
+    direction = tool_input.get("direction", "outgoing")
+    if direction not in ("outgoing", "incoming", "both"):
+        direction = "outgoing"
     rel_types = tool_input.get("relationship_types", None)
     if isinstance(rel_types, str) and rel_types:
         rel_types = [r.strip() for r in rel_types.split(",")]
@@ -96,6 +105,7 @@ async def handle_kg_query(
             db, workspace_name, entity,
             max_depth=max_depth,
             relationship_types=rel_types,
+            direction=direction,
             limit=50,
         )
         if not results:
@@ -375,10 +385,16 @@ KG_TRAVERSE_TOOL: dict[str, Any] = {
                 "description": "Comma-separated relationship types to filter (e.g., 'depends_on,manages')",
             },
             "entity_types": {
-                "type": "string",
-                "description": "Comma-separated entity types to filter (e.g., 'service,tool')",
-            },
-            "min_confidence": {
+                        "type": "string",
+                        "description": "Comma-separated entity types to filter (e.g., 'service,tool')",
+                    },
+                    "direction": {
+                        "type": "string",
+                        "enum": ["outgoing", "incoming", "both"],
+                        "description": "Traversal direction: 'outgoing' (default), 'incoming', or 'both'",
+                        "default": "outgoing",
+                    },
+                    "min_confidence": {
                 "type": "number",
                 "default": 0.5,
             },
@@ -403,6 +419,9 @@ async def handle_kg_traverse(
     max_depth = min(tool_input.get("max_depth", 2), 6)
     rel_types_raw = tool_input.get("relationship_types")
     ent_types_raw = tool_input.get("entity_types")
+    direction = tool_input.get("direction", "outgoing")
+    if direction not in ("outgoing", "incoming", "both"):
+        direction = "outgoing"
     min_confidence = tool_input.get("min_confidence", 0.5)
     limit = min(tool_input.get("limit", 50), 200)
 
@@ -431,6 +450,7 @@ async def handle_kg_traverse(
             entity_types=ent_types,
             min_confidence=min_confidence,
             limit=limit,
+            direction=direction,
         )
 
     if not results:

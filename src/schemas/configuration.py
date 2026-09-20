@@ -87,6 +87,31 @@ class DreamConfiguration(BaseModel):
     )
 
 
+class TemporalDecayConfiguration(BaseModel):
+    """Configuration for temporal decay in KG retrieval."""
+
+    enabled: bool | None = Field(
+        default=True,
+        description="Whether to enable temporal decay weighting for KG queries.",
+    )
+    half_life_days: float | None = Field(
+        default=7.0,
+        ge=0.1,
+        description="Days for conclusion weight to reduce by 50% (default: 7).",
+    )
+    min_weight: float | None = Field(
+        default=0.01,
+        ge=0.0,
+        le=1.0,
+        description="Minimum decay weight floor (default: 0.01).",
+    )
+    max_age_days: float | None = Field(
+        default=365.0,
+        ge=1,
+        description="Conclusions older than this get minimum weight (default: 365).",
+    )
+
+
 def _validate_custom_instructions_budget(
     custom_instructions: str | None,
 ) -> str | None:
@@ -131,6 +156,10 @@ class WorkspaceConfiguration(BaseModel):
     dream: DreamConfiguration | None = Field(
         default=None,
         description="Configuration for dream functionality. If reasoning is disabled, dreams will also be disabled and these settings will be ignored.",
+    )
+    temporal_decay: TemporalDecayConfiguration | None = Field(
+        default=None,
+        description="Configuration for temporal decay in KG retrieval.",
     )
 
 
