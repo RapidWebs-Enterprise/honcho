@@ -108,6 +108,18 @@ async def handle_kg_query(
             direction=direction,
             limit=50,
         )
+
+        # Apply temporal decay if enabled
+        from src.utils.temporal_decay import get_decay_config, apply_decay
+        decay_config = get_decay_config()
+        if decay_config["enabled"] and results:
+            results = apply_decay(
+                results,
+                half_life=decay_config["half_life_days"],
+                min_weight=decay_config["min_weight"],
+                max_age_days=decay_config["max_age_days"],
+            )
+
         if not results:
             return (
                 f"No relationships found for '{entity}' "
