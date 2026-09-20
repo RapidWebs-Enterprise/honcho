@@ -101,7 +101,10 @@ async def query_conclusions(
 ) -> list[schemas.Conclusion]:
     """
     Query Conclusions using semantic search. Use `top_k` to control the number of results returned.
+    Temporal decay is applied automatically if enabled in config.
     """
+    from src.utils.temporal_decay import get_decay_config, apply_decay
+
     observer = None
     observed = None
     if body.filters:
@@ -131,6 +134,33 @@ async def query_conclusions(
             max_distance=body.distance,
             top_k=body.top_k,
         )
+
+    # Apply temporal decay if enabled
+    decay_config = get_decay_config()
+    if decay_config["enabled"] and documents:
+        # Convert to dict format for apply_decay
+        docs_dict = [
+            {
+                "id": d.id,
+                "score": d.score or 0.0,
+                "created_at": d.created_at.isoformat() if d.created_at else None,
+                "text": d.text,
+            }
+            for d in documents
+        ]
+        docs_dict = apply_decay(
+            docs_dict,
+            half_life=decay_config["half_life_days"],
+            min_weight=decay_config["min_weight"],
+            max_age_days=decay_config["max_age_days"],
+        )
+        # Re-sort original documents by decay-weighted score
+        sorted_ids = [d["id"] for d in docs_dict]
+        documents = sorted(
+            documents,
+            key=lambda d: sorted_ids.index(d.id) if d.id in sorted_ids else len(sorted_ids),
+        )
+
     return [schemas.Conclusion.model_validate(doc) for doc in documents]
 
 
