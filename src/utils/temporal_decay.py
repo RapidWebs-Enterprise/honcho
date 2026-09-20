@@ -45,7 +45,7 @@ def apply_decay(
     Returns:
         Sorted list of conclusions with _decay_weight added
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(datetime.UTC)
 
     for c in conclusions:
         created = c.get("created_at")
