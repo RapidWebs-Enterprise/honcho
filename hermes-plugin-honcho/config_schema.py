@@ -1,8 +1,16 @@
 """Honcho's declared config surface — rendered by the generic desktop panel."""
 
 from plugins.memory.config_schema import (
-    KIND_BOOL, KIND_JSON, KIND_NUMBER, KIND_SECRET, KIND_SELECT, KIND_TEXT, STORAGE_HONCHO_HOST_BLOCK,
-    ProviderConfigSchema, ProviderField, ProviderFieldOption,
+    KIND_BOOL,
+    KIND_JSON,
+    KIND_NUMBER,
+    KIND_SECRET,
+    KIND_SELECT,
+    KIND_TEXT,
+    STORAGE_HONCHO_HOST_BLOCK,
+    ProviderConfigSchema,
+    ProviderField,
+    ProviderFieldOption,
 )
 
 

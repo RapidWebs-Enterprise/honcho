@@ -7,14 +7,13 @@ See SPEC-001 v3.0 §3.5 for endpoint specifications.
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src import schemas
-from src.dependencies import get_read_db, tracked_db
-from src.exceptions import ResourceNotFoundException, ValidationException
+from src.dependencies import get_read_db
+from src.exceptions import ResourceNotFoundException
 from src.kg.graph import find_path, subgraph, traverse
 from src.kg.models import KGEntity, KGRelationship
 from src.kg.peer_linker import auto_link_entities_in_workspace
@@ -89,7 +88,8 @@ async def kg_search_entities(
     Uses pg_trgm similarity when available, falls back to ILIKE.
     By default excludes dormant entities (confidence < 0.1, unseen > 90 days).
     """
-    from sqlalchemy import or_, select, text as sa_text
+    from sqlalchemy import or_, select
+    from sqlalchemy import text as sa_text
 
     stmt = select(KGEntity).where(
         KGEntity.workspace_name == workspace_id,
@@ -202,7 +202,6 @@ async def kg_peer_entities(
     if relationship_types:
         # Also join through relationships to filter by type
         parsed_types = relationship_types.split(",")
-        from sqlalchemy import join
         stmt = (
             select(KGEntity)
             .join(
@@ -245,8 +244,9 @@ async def kg_auto_link(
     a peer_name set and whose name matches a known workspace peer.
     """
     # Get list of peer names from the workspace
-    from src import models
     from sqlalchemy import select as sel
+
+    from src import models
 
     stmt = sel(models.Peer.name).where(
         models.Peer.workspace_name == workspace_id
@@ -277,7 +277,8 @@ async def kg_update_entity(
     Allows operators to correct entity name, type, or peer linkage
     that the automated extraction got wrong.
     """
-    from sqlalchemy import select as sel, update as upd
+    from sqlalchemy import select as sel
+    from sqlalchemy import update as upd
 
     stmt = sel(KGEntity).where(
         KGEntity.id == entity_id,
@@ -332,9 +333,10 @@ async def kg_context_dump(
     RA-07: Filters dormant entities (confidence < 0.1).
     RA-12: Token estimate uses raw JSON length / 4.
     """
-    from sqlalchemy import select as sel
-    from datetime import datetime, timezone
     import json
+    from datetime import datetime
+
+    from sqlalchemy import select as sel
 
     # 1. Peer entities (RA-07: skip dormant)
     from src.kg.models import KGEntity
@@ -384,6 +386,6 @@ async def kg_context_dump(
     return {
         "peer_entities": entities_data,
         "neighborhoods": neighborhoods,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "token_estimate": token_estimate,
     }

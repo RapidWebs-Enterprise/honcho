@@ -5,9 +5,8 @@ RRF is a method to combine multiple ranked lists by computing the reciprocal
 of each item's rank in each list, then summing these reciprocal ranks.
 """
 
-import re
 import logging
-
+import re
 from typing import Any, TypeVar
 
 from sqlalchemy import Select, and_, func, or_, select
@@ -17,9 +16,9 @@ from src import models
 from src.config import settings
 from src.dependencies import tracked_db
 from src.embedding_client import EmbeddingTokenLimitError, embedding_client
-from src.reranker_client import get_reranker_client
 from src.exceptions import ValidationException
 from src.models import session_peers_table
+from src.reranker_client import get_reranker_client
 from src.telemetry.events import EmbeddingCallPurpose
 from src.utils.filter import apply_filter
 from src.utils.formatting import ILIKE_ESCAPE_CHAR, escape_ilike_pattern

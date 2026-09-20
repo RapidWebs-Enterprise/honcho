@@ -7,11 +7,13 @@ management. It creates a chatbot that remembers conversations across sessions.
 """
 
 import os
+
 from dotenv import load_dotenv
-from typing_extensions import TypedDict
 from honcho import Honcho, Peer, Session
+from langgraph.graph import END, START, StateGraph
 from openai import OpenAI
-from langgraph.graph import StateGraph, START, END
+from typing_extensions import TypedDict
+
 load_dotenv()
 
 honcho = Honcho()

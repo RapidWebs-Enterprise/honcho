@@ -13,10 +13,8 @@ start a backfill into it.
 from __future__ import annotations
 
 import json
-from typing import List, Optional
 
 import typer
-
 from honcho import Honcho, NotFoundError, Scope
 
 from honcho_cli._help import HonchoTyperGroup
@@ -87,7 +85,7 @@ def _backfill_summary(status: dict) -> dict:
 
 @app.command("list")
 def list_scopes(
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """List scopes in the workspace."""
@@ -104,13 +102,13 @@ def list_scopes(
 @app.command("create")
 def create_scope(
     name: str = typer.Argument(help="Scope name to create or get (unprefixed, unique in the workspace)"),
-    sessions: Optional[List[str]] = typer.Option(
+    sessions: list[str] | None = typer.Option(
         None,
         "--sessions",
         help="Sessions to add (repeat or comma-separate). History backfills asynchronously; see `honcho scope status`.",
     ),
-    metadata: Optional[str] = typer.Option(None, "--metadata", help="JSON metadata to associate with the scope"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    metadata: str | None = typer.Option(None, "--metadata", help="JSON metadata to associate with the scope"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Create or get a scope, optionally adding sessions to it."""
@@ -142,7 +140,7 @@ def create_scope(
 @app.command()
 def inspect(
     name: str = typer.Argument(help="Scope name"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Inspect a scope: metadata, member sessions, and backfill state."""
@@ -166,7 +164,7 @@ def inspect(
 @app.command("sessions")
 def scope_sessions(
     name: str = typer.Argument(help="Scope name"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """List the sessions that are members of a scope (longest-standing first)."""
@@ -193,8 +191,8 @@ def scope_sessions(
 @app.command("add-sessions")
 def add_sessions(
     name: str = typer.Argument(help="Scope name"),
-    session_ids: List[str] = typer.Argument(help="Session IDs (space- or comma-separated, max 100)"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    session_ids: list[str] = typer.Argument(help="Session IDs (space- or comma-separated, max 100)"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Add existing sessions to a scope. History is backfilled asynchronously — poll `honcho scope status`."""
@@ -215,7 +213,7 @@ def add_sessions(
 def remove_session(
     name: str = typer.Argument(help="Scope name"),
     session_id: str = typer.Argument(help="Session ID to remove"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Remove a session from a scope. Its conclusions are reconciled out asynchronously."""
@@ -235,7 +233,7 @@ def remove_session(
 @app.command()
 def status(
     name: str = typer.Argument(help="Scope name"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Per-session backfill state. Recall through the scope is complete once nothing is pending."""

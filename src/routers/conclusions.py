@@ -103,7 +103,7 @@ async def query_conclusions(
     Query Conclusions using semantic search. Use `top_k` to control the number of results returned.
     Temporal decay is applied automatically if enabled in config.
     """
-    from src.utils.temporal_decay import get_decay_config, apply_decay
+    from src.utils.temporal_decay import apply_decay, get_decay_config
 
     observer = None
     observed = None

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from honcho_cli import common
 from honcho_cli.output import set_json_mode
 

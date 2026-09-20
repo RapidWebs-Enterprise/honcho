@@ -3,19 +3,32 @@
 from __future__ import annotations
 
 import json
-from typing import Optional
 
 import typer
-
 from honcho.api_types import PeerConfig
 
-from honcho_cli.commands.workspace import _config_to_dict, _handle_chat_error, _handle_error, _raw_list
-from honcho_cli.output import print_error, print_result, use_json
-from honcho_cli.recall import parse_csv_repeatable, reject_incompatible_recall, scope_for_sdk
-from honcho_cli.validation import validate_resource_id
-
 from honcho_cli._help import HonchoTyperGroup
-from honcho_cli.common import add_common_options, format_evidence, get_client, get_flag_overrides, get_resolved_config, handle_cmd_flags
+from honcho_cli.commands.workspace import (
+    _config_to_dict,
+    _handle_chat_error,
+    _handle_error,
+    _raw_list,
+)
+from honcho_cli.common import (
+    add_common_options,
+    format_evidence,
+    get_client,
+    get_flag_overrides,
+    get_resolved_config,
+    handle_cmd_flags,
+)
+from honcho_cli.output import print_error, print_result, use_json
+from honcho_cli.recall import (
+    parse_csv_repeatable,
+    reject_incompatible_recall,
+    scope_for_sdk,
+)
+from honcho_cli.validation import validate_resource_id
 
 app = typer.Typer(cls=HonchoTyperGroup, help="List, create, chat with, search, and manage peers and their representations.")
 add_common_options(app)
@@ -39,7 +52,7 @@ def _get_peer_id(peer_id: str | None) -> str:
 
 @app.command("list")
 def list_peers(
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """List all peers in the workspace."""
@@ -64,9 +77,9 @@ def list_peers(
 
 @app.command()
 def inspect(
-    peer_id: Optional[str] = typer.Argument(None, help="Peer ID (uses default if omitted)"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
-    peer: Optional[str] = typer.Option(None, "--peer", "-p", help="Override peer ID"),
+    peer_id: str | None = typer.Argument(None, help="Peer ID (uses default if omitted)"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    peer: str | None = typer.Option(None, "--peer", "-p", help="Override peer ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Inspect a peer: card, session count, recent conclusions."""
@@ -106,10 +119,10 @@ def inspect(
 
 @app.command()
 def card(
-    peer_id: Optional[str] = typer.Argument(None, help="Peer ID (uses default if omitted)"),
-    target: Optional[str] = typer.Option(None, help="Target peer for relationship card"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
-    peer: Optional[str] = typer.Option(None, "--peer", "-p", help="Override peer ID"),
+    peer_id: str | None = typer.Argument(None, help="Peer ID (uses default if omitted)"),
+    target: str | None = typer.Option(None, help="Target peer for relationship card"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    peer: str | None = typer.Option(None, "--peer", "-p", help="Override peer ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Get raw peer card content."""
@@ -129,14 +142,14 @@ def card(
 @app.command()
 def chat(
     query: str = typer.Argument(help="Question to ask about the peer"),
-    target: Optional[str] = typer.Option(None, help="Target peer for perspective"),
-    reasoning: Optional[str] = typer.Option(None, "--reasoning", "-r", help="Reasoning level: minimal, low, medium, high, max"),
-    scope: Optional[list[str]] = typer.Option(
+    target: str | None = typer.Option(None, help="Target peer for perspective"),
+    reasoning: str | None = typer.Option(None, "--reasoning", "-r", help="Reasoning level: minimal, low, medium, high, max"),
+    scope: list[str] | None = typer.Option(
         None,
         "--scope",
         help="Recall only from this scope. Repeat or comma-separate for several (explicit conclusions only). Excludes -s and --sessions.",
     ),
-    sessions: Optional[list[str]] = typer.Option(
+    sessions: list[str] | None = typer.Option(
         None,
         "--sessions",
         help="Recall only from these session IDs (repeat or comma-separate); explicit conclusions only. Excludes -s and --scope.",
@@ -146,9 +159,9 @@ def chat(
         "--evidence",
         help="Also report what the answer was built from: the conclusions and messages read and the tools called.",
     ),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
-    peer: Optional[str] = typer.Option(None, "--peer", "-p", help="Override peer ID"),
-    session: Optional[str] = typer.Option(None, "--session", "-s", help="Override session ID"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    peer: str | None = typer.Option(None, "--peer", "-p", help="Override peer ID"),
+    session: str | None = typer.Option(None, "--session", "-s", help="Override session ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Query the dialectic about a peer."""
@@ -205,8 +218,8 @@ def chat(
 def search(
     query: str = typer.Argument(help="Search query"),
     limit: int = typer.Option(10, help="Max results"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
-    peer: Optional[str] = typer.Option(None, "--peer", "-p", help="Override peer ID"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    peer: str | None = typer.Option(None, "--peer", "-p", help="Override peer ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Search a peer's messages."""
@@ -235,9 +248,9 @@ def search(
 @app.command("create")
 def create_peer(
     peer_id: str = typer.Argument(help="Peer ID to create or get"),
-    observe_me: Optional[bool] = typer.Option(None, "--observe-me/--no-observe-me", help="Whether Honcho will form a representation of this peer"),
-    metadata: Optional[str] = typer.Option(None, "--metadata", help="JSON metadata to associate with the peer"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    observe_me: bool | None = typer.Option(None, "--observe-me/--no-observe-me", help="Whether Honcho will form a representation of this peer"),
+    metadata: str | None = typer.Option(None, "--metadata", help="JSON metadata to associate with the peer"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Create or get a peer."""
@@ -272,9 +285,9 @@ def create_peer(
 
 @app.command("get-metadata")
 def get_metadata(
-    peer_id: Optional[str] = typer.Argument(None, help="Peer ID (uses default if omitted)"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
-    peer: Optional[str] = typer.Option(None, "--peer", "-p", help="Override peer ID"),
+    peer_id: str | None = typer.Argument(None, help="Peer ID (uses default if omitted)"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    peer: str | None = typer.Option(None, "--peer", "-p", help="Override peer ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Get metadata for a peer."""
@@ -294,8 +307,8 @@ def get_metadata(
 @app.command("set-metadata")
 def set_metadata(
     metadata: str = typer.Argument(help="JSON metadata to set (e.g. '{\"key\": \"value\"}')"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
-    peer: Optional[str] = typer.Option(None, "--peer", "-p", help="Peer ID (uses default if omitted)"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    peer: str | None = typer.Option(None, "--peer", "-p", help="Peer ID (uses default if omitted)"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Set metadata for a peer."""
@@ -321,13 +334,13 @@ def set_metadata(
 
 @app.command()
 def representation(
-    peer_id: Optional[str] = typer.Argument(None, help="Peer ID (uses default if omitted)"),
-    target: Optional[str] = typer.Option(None, help="Target peer to get representation about"),
-    search_query: Optional[str] = typer.Option(None, help="Semantic search query to filter conclusions"),
-    max_conclusions: Optional[int] = typer.Option(None, help="Maximum number of conclusions to include"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
-    peer: Optional[str] = typer.Option(None, "--peer", "-p", help="Override peer ID"),
-    session: Optional[str] = typer.Option(None, "--session", "-s", help="Override session ID"),
+    peer_id: str | None = typer.Argument(None, help="Peer ID (uses default if omitted)"),
+    target: str | None = typer.Option(None, help="Target peer to get representation about"),
+    search_query: str | None = typer.Option(None, help="Semantic search query to filter conclusions"),
+    max_conclusions: int | None = typer.Option(None, help="Maximum number of conclusions to include"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    peer: str | None = typer.Option(None, "--peer", "-p", help="Override peer ID"),
+    session: str | None = typer.Option(None, "--session", "-s", help="Override session ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Get the formatted representation for a peer."""

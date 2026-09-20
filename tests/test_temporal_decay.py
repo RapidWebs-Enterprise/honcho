@@ -1,9 +1,8 @@
 """Tests for temporal decay functionality."""
 
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
-from src.utils.temporal_decay import calculate_decay, apply_decay, get_decay_config
+from src.utils.temporal_decay import apply_decay, calculate_decay, get_decay_config
 
 
 class TestCalculateDecay:
@@ -45,7 +44,7 @@ class TestApplyDecay:
 
     def test_sorts_by_combined_score(self):
         """Should sort by semantic score * decay weight."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         conclusions = [
             {
@@ -68,7 +67,7 @@ class TestApplyDecay:
 
     def test_preserves_original_scores(self):
         """Should not modify original 'score' field."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         conclusions = [
             {
@@ -87,7 +86,7 @@ class TestApplyDecay:
         """Should handle conclusions without timestamps."""
         conclusions = [
             {"id": "no_time", "score": 0.9},
-            {"id": "with_time", "score": 0.7, "created_at": datetime.now(timezone.utc)},
+            {"id": "with_time", "score": 0.7, "created_at": datetime.now(UTC)},
         ]
 
         result = apply_decay(conclusions)
@@ -97,7 +96,7 @@ class TestApplyDecay:
 
     def test_max_age_floor(self):
         """Older than max_age_days should get min_weight."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         conclusions = [
             {

@@ -7,7 +7,7 @@ See SPEC-001 v3.0 §3.2 for design.
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,7 +41,7 @@ async def resolve_entity(
     
     Returns the resolved KGEntity (persisted, committed).
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Strategy 1: Exact match on canonical name
     stmt = select(KGEntity).where(
@@ -125,7 +125,7 @@ def decay_confidence(entity: KGEntity) -> float:
     """
     if not entity.last_seen_at:
         return entity.confidence
-    days_since = (datetime.now(timezone.utc) - entity.last_seen_at).days
+    days_since = (datetime.now(UTC) - entity.last_seen_at).days
     periods = max(0, days_since // CONFIDENCE_DECAY_DAYS)
     return entity.confidence * (0.5**periods)
 
@@ -139,7 +139,7 @@ def is_dormant(entity: KGEntity) -> bool:
     """
     if not entity.last_seen_at:
         return False
-    days_since = (datetime.now(timezone.utc) - entity.last_seen_at).days
+    days_since = (datetime.now(UTC) - entity.last_seen_at).days
     if days_since < PRUNE_DAYS:
         return False
     return decay_confidence(entity) < PRUNE_CONFIDENCE_THRESHOLD

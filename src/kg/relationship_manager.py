@@ -6,7 +6,7 @@ properties. Otherwise, insert a new relationship.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -36,7 +36,7 @@ async def create_or_update_relationship(
     
     Returns the (created or updated) KGRelationship.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Upsert: INSERT ... ON CONFLICT (workspace, source, target, type) DO UPDATE
     stmt = pg_insert(KGRelationship).values(

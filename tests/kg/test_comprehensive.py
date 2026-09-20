@@ -3,15 +3,15 @@ Does NOT depend on conftest fixtures (pure logic tests where possible,
 uses mock DB sessions where needed).
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 import json
-import pytest
-from unittest.mock import AsyncMock, MagicMock
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
+import pytest
 
 # ═══════════════════════════════════════════════════════════════════
 # Entity Types Tests
@@ -26,8 +26,8 @@ class TestEntityTypes:
             assert validate_entity_type(t) == t
 
     def test_invalid_type_rejected(self):
-        from kg.entity_types import validate_entity_type
         from exceptions import ValidationException
+        from kg.entity_types import validate_entity_type
         with pytest.raises(ValidationException, match="Invalid KG entity type"):
             validate_entity_type("not_a_valid_type")
 
@@ -35,7 +35,7 @@ class TestEntityTypes:
         from kg.entity_types import VALID_ENTITY_TYPES
         expected = {"person", "agent", "service", "tool", "project",
                     "concept", "location", "organization", "event", "unknown"}
-        assert VALID_ENTITY_TYPES == frozenset(expected)
+        assert frozenset(expected) == VALID_ENTITY_TYPES
 
     def test_entity_type_count(self):
         from kg.entity_types import VALID_ENTITY_TYPES
@@ -50,13 +50,16 @@ class TestRelationshipTypes:
     """Verify the relationship types vocabulary is correct."""
 
     def test_all_types_valid(self):
-        from kg.relationship_types import VALID_RELATIONSHIP_TYPES, validate_relationship_type
+        from kg.relationship_types import (
+            VALID_RELATIONSHIP_TYPES,
+            validate_relationship_type,
+        )
         for t in VALID_RELATIONSHIP_TYPES:
             assert validate_relationship_type(t) == t
 
     def test_invalid_type_rejected(self):
-        from kg.relationship_types import validate_relationship_type
         from exceptions import ValidationException
+        from kg.relationship_types import validate_relationship_type
         with pytest.raises(ValidationException, match="Invalid KG relationship type"):
             validate_relationship_type("not_valid")
 
@@ -115,8 +118,8 @@ class TestExtractionSchema:
         assert validate_extraction_output(valid) is True
 
     def test_invalid_entity_type_fails(self):
-        from kg.extraction_schema import validate_extraction_output
         from exceptions import ValidationException
+        from kg.extraction_schema import validate_extraction_output
         invalid = {
             "entities": [{"name": "Bad Entity", "type": "invalid_type"}],
             "relationships": [],
@@ -147,20 +150,20 @@ class TestResolver:
         assert result == ["a", "b", "c"]
 
     def test_decay_confidence_recent(self):
-        from kg.resolver import decay_confidence
         from kg.models import KGEntity
+        from kg.resolver import decay_confidence
         entity = KGEntity(
             workspace_name="test", name="test", entity_type="service",
-            last_seen_at=datetime.now(timezone.utc),
+            last_seen_at=datetime.now(UTC),
             confidence=1.0,
         )
         # Recent — should not decay
         assert decay_confidence(entity) == 1.0
 
     def test_decay_confidence_old(self):
-        from kg.resolver import decay_confidence, CONFIDENCE_DECAY_DAYS
         from kg.models import KGEntity
-        old_date = datetime.now(timezone.utc) - timedelta(days=CONFIDENCE_DECAY_DAYS * 2 + 1)
+        from kg.resolver import CONFIDENCE_DECAY_DAYS, decay_confidence
+        old_date = datetime.now(UTC) - timedelta(days=CONFIDENCE_DECAY_DAYS * 2 + 1)
         entity = KGEntity(
             workspace_name="test", name="test", entity_type="service",
             last_seen_at=old_date,
@@ -170,9 +173,9 @@ class TestResolver:
         assert decay_confidence(entity) <= 0.25
 
     def test_is_dormant_true(self):
-        from kg.resolver import is_dormant, PRUNE_DAYS
         from kg.models import KGEntity
-        old = datetime.now(timezone.utc) - timedelta(days=PRUNE_DAYS + 1)
+        from kg.resolver import PRUNE_DAYS, is_dormant
+        old = datetime.now(UTC) - timedelta(days=PRUNE_DAYS + 1)
         entity = KGEntity(
             workspace_name="test", name="test", entity_type="service",
             last_seen_at=old, confidence=0.05,
@@ -180,11 +183,11 @@ class TestResolver:
         assert is_dormant(entity) is True
 
     def test_is_dormant_false_recent(self):
-        from kg.resolver import is_dormant
         from kg.models import KGEntity
+        from kg.resolver import is_dormant
         entity = KGEntity(
             workspace_name="test", name="test", entity_type="service",
-            last_seen_at=datetime.now(timezone.utc),
+            last_seen_at=datetime.now(UTC),
             confidence=1.0,
         )
         assert is_dormant(entity) is False
@@ -231,7 +234,11 @@ class TestExtractionOutputModel:
     """Verify the Pydantic output model validates correctly."""
 
     def test_valid_output(self):
-        from kg.extraction_output import KGExtractionOutput, KGEntityOutput, KGRelationshipOutput
+        from kg.extraction_output import (
+            KGEntityOutput,
+            KGExtractionOutput,
+            KGRelationshipOutput,
+        )
         output = KGExtractionOutput(
             entities=[KGEntityOutput(name="Redis", type="service")],
             relationships=[

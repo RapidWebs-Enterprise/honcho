@@ -21,7 +21,7 @@ import glob
 import os
 import re
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from email.header import decode_header, make_header
 from email.utils import getaddresses, parseaddr
 
@@ -215,7 +215,7 @@ def fetch_thread_messages(service, thread_id: str) -> list[dict]:
             "bcc": headers.get("Bcc", ""),
             "subject": headers.get("Subject", ""),
             "date": headers.get("Date", ""),
-            "timestamp": datetime.fromtimestamp(ts, tz=timezone.utc),
+            "timestamp": datetime.fromtimestamp(ts, tz=UTC),
             "body": body.strip(),
             "labels": msg.get("labelIds", []),
             "snippet": msg.get("snippet", ""),

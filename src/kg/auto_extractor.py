@@ -8,19 +8,14 @@ import json
 import logging
 import uuid
 from datetime import datetime
-from typing import Any
 
-from src.config import settings
+from src.config import ModelConfig, settings
 from src.dependencies import tracked_db
-from src.kg.extraction_output import ExtractionOutput
+from src.kg.extraction_prompt import KG_EXTRACTION_PROMPT
 from src.kg.extraction_schema import KG_EXTRACTION_SCHEMA, validate_extraction_output
 from src.kg.models import KGEntity, KGRelationship
 from src.llm import honcho_llm_call
 from src.llm.types import LLMTelemetryContext
-from src.config import ModelConfig
-from src.kg.extraction_prompt import KG_EXTRACTION_PROMPT
-from src.kg.extraction_schema import KG_EXTRACTION_SCHEMA
-from src.kg.models import KGEntity, KGRelationship
 
 logger = logging.getLogger(__name__)
 
@@ -107,8 +102,9 @@ class AutoExtractor:
     async def _fetch_messages(self, message_ids: list[str]) -> list[dict]:
         """Fetch message content by IDs."""
         async with tracked_db("auto_extraction.fetch_messages", read_only=True) as db:
-            from src import models
             from sqlalchemy import select
+
+            from src import models
 
             stmt = (
                 select(models.Message)
@@ -145,7 +141,6 @@ class AutoExtractor:
         prompt = self._extraction_prompt.format(message=formatted_messages)
 
         # Get model config for extraction - use deriver model config
-        from src.config import settings
         deriver_config = settings.DERIVER.MODEL_CONFIG
 
         model_config = ModelConfig(
@@ -155,8 +150,6 @@ class AutoExtractor:
             api_key=deriver_config.api_key,
         )
 
-        from src.llm import honcho_llm_call
-        from src.llm.types import LLMTelemetryContext
 
         response = await honcho_llm_call(
             model_config=model_config,
@@ -227,11 +220,9 @@ class AutoExtractor:
         entity_data: dict,
     ) -> bool:
         """Upsert entity. Returns True if created, False if updated."""
-        from src import models
         from sqlalchemy import select
 
         from src.kg.entity_types import validate_entity_type
-        from src.exceptions import ValidationException
 
         try:
             validate_entity_type(entity_data.get("type", "unknown"))
@@ -295,7 +286,6 @@ class AutoExtractor:
         rel_data: dict,
     ) -> bool:
         """Upsert relationship. Returns True if created, False if already exists."""
-        from src import models
         from sqlalchemy import select
 
         from src.kg.relationship_types import validate_relationship_type
@@ -319,8 +309,7 @@ class AutoExtractor:
             return False
 
         # Find source entity
-        from src.kg.models import KGEntity, KGRelationship
-        from sqlalchemy import select
+        from src.kg.models import KGEntity
 
         source_stmt = select(KGEntity).where(
             KGEntity.workspace_name == workspace_name,

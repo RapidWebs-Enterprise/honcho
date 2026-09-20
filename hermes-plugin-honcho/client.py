@@ -18,13 +18,15 @@ import sys
 import threading as _threading
 import time
 import weakref
+from collections.abc import Callable
+
 # --- per-identity client cache ------------------------------------------- One slot per client identity,
 # replacing the single process-wide slot that pinned the first profile's workspace and bearer for every
 # later profile in multi-profile processes (#69123 multiplexed gateway, #74065 dashboard). The legacy names
 # above are retained only for reset bookkeeping.
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 from agent.memory_provider import spawn_context_thread as _spawn_context_thread
@@ -34,8 +36,13 @@ from hermes_constants import get_hermes_home
 from hermes_state_common import TITLE_SOURCE_DERIVED, TITLE_SOURCE_LLM
 
 from .client_cache import (
-    _DEFAULT_HTTP_TIMEOUT, _client_cache_key, _client_slots, _client_slots_lock,
-    _honcho_json_timeout_memo, _refresh_oauth, _slot_for,
+    _DEFAULT_HTTP_TIMEOUT,
+    _client_cache_key,
+    _client_slots,
+    _client_slots_lock,
+    _honcho_json_timeout_memo,
+    _refresh_oauth,
+    _slot_for,
 )
 
 if TYPE_CHECKING:
@@ -542,13 +549,13 @@ class HonchoClientConfig:
 
 
 # Threads keyed by the provider or manager that owns them, so shutdown never waits on another agent's work.
-_plugin_threads: "weakref.WeakKeyDictionary[Any, weakref.WeakSet]" = weakref.WeakKeyDictionary()
+_plugin_threads: weakref.WeakKeyDictionary[Any, weakref.WeakSet] = weakref.WeakKeyDictionary()
 _plugin_threads_lock = _threading.Lock()
 
 
 def spawn_context_thread(
     target, *, name: str, daemon: bool = True, args: tuple = (), owner: Any = None,
-) -> "_threading.Thread":
+) -> _threading.Thread:
     """agent.memory_provider.spawn_context_thread plus an ``owner``: the thread is registered so
     join_plugin_threads can wait on exactly the threads this provider or manager spawned."""
     thread = _spawn_context_thread(target, name=name, daemon=daemon, args=args)
@@ -666,7 +673,7 @@ def telemetry_headers() -> dict[str, str]:
     }
 
 
-def _build_client(config: HonchoClientConfig) -> "Honcho":
+def _build_client(config: HonchoClientConfig) -> Honcho:
     """Construct the SDK client (runs inside the slot factory so racing callers share one)."""
     with contextlib.suppress(Exception):  # lazy-dep failures fall through to the canonical import error below
         pass  # dependencies come from pyproject.toml (installed by Hermes on install/enable/update)
@@ -737,6 +744,7 @@ def __getattr__(name):  # PEP 562 — lazy so no import cycles
     if target is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     import importlib
+
     from hermes_cli.plugin_compat import warn_once
     warn_once(__name__, name, *target)
     return getattr(importlib.import_module(target[0]), target[1])

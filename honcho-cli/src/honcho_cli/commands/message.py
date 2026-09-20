@@ -4,19 +4,16 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Optional
 
 import typer
-
 from honcho.api_types import MessageCreateParams
 
+from honcho_cli._help import HonchoTyperGroup
 from honcho_cli.commands.session import _fetch_recent_messages, _get_session_id
 from honcho_cli.commands.workspace import _handle_error
+from honcho_cli.common import add_common_options, get_client, handle_cmd_flags
 from honcho_cli.output import print_error, print_result, status
 from honcho_cli.validation import validate_resource_id
-
-from honcho_cli._help import HonchoTyperGroup
-from honcho_cli.common import add_common_options, get_client, handle_cmd_flags
 
 app = typer.Typer(cls=HonchoTyperGroup, help="List, create, and get messages within a session.")
 add_common_options(app)
@@ -24,13 +21,13 @@ add_common_options(app)
 
 @app.command("list")
 def list_messages(
-    session_id: Optional[str] = typer.Argument(None, help="Session ID (uses default if omitted)"),
+    session_id: str | None = typer.Argument(None, help="Session ID (uses default if omitted)"),
     last: int = typer.Option(20, "--last", help="Number of recent messages"),
     reverse: bool = typer.Option(False, "--reverse", help="Show oldest first (default is newest first)"),
     brief: bool = typer.Option(False, "--brief", help="Show only IDs, peer, token count, and created_at (no content)"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
-    peer: Optional[str] = typer.Option(None, "--peer", "-p", help="Filter by peer ID"),
-    session: Optional[str] = typer.Option(None, "--session", "-s", help="Override session ID"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    peer: str | None = typer.Option(None, "--peer", "-p", help="Filter by peer ID"),
+    session: str | None = typer.Option(None, "--session", "-s", help="Override session ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """List messages in a session. Scoped to a peer with -p."""
@@ -94,9 +91,9 @@ def list_messages(
 def create_message(
     content: str = typer.Argument(help="Message content"),
     peer_id: str = typer.Option(..., "--peer", "-p", help="Peer ID of the message sender"),
-    metadata: Optional[str] = typer.Option(None, "--metadata", help="JSON metadata to associate with the message"),
-    session_id: Optional[str] = typer.Option(None, "--session", "-s", help="Session ID"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    metadata: str | None = typer.Option(None, "--metadata", help="JSON metadata to associate with the message"),
+    session_id: str | None = typer.Option(None, "--session", "-s", help="Session ID"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Create a message in a session."""
@@ -135,8 +132,8 @@ def create_message(
 @app.command("get")
 def get_message(
     message_id: str = typer.Argument(help="Message ID"),
-    session_id: Optional[str] = typer.Option(None, "--session", "-s", help="Session ID"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    session_id: str | None = typer.Option(None, "--session", "-s", help="Session ID"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Get a single message by ID."""

@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import json
-from typing import Optional
 
 import typer
-
 from honcho import (
     APIError,
     AuthenticationError,
@@ -16,13 +14,23 @@ from honcho import (
     ServerError,
 )
 
+from honcho_cli._help import HonchoTyperGroup
+from honcho_cli.common import (
+    add_common_options,
+    format_evidence,
+    get_client,
+    get_flag_overrides,
+    get_resolved_config,
+    handle_cmd_flags,
+)
 from honcho_cli.config import identity_headers
 from honcho_cli.output import print_error, print_result, status, use_json
-from honcho_cli.recall import parse_csv_repeatable, reject_incompatible_recall, scope_for_sdk
+from honcho_cli.recall import (
+    parse_csv_repeatable,
+    reject_incompatible_recall,
+    scope_for_sdk,
+)
 from honcho_cli.validation import validate_resource_id
-
-from honcho_cli._help import HonchoTyperGroup
-from honcho_cli.common import add_common_options, format_evidence, get_client, get_flag_overrides, get_resolved_config, handle_cmd_flags
 
 app = typer.Typer(cls=HonchoTyperGroup, help="List, create, inspect, chat, delete, and search workspaces.")
 add_common_options(app)
@@ -69,7 +77,7 @@ def list_workspaces(
 @app.command("create")
 def create_workspace(
     workspace_id: str = typer.Argument(help="Workspace ID to create or get"),
-    metadata: Optional[str] = typer.Option(None, "--metadata", help="JSON metadata to associate with the workspace"),
+    metadata: str | None = typer.Option(None, "--metadata", help="JSON metadata to associate with the workspace"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Create or get a workspace."""
@@ -100,8 +108,8 @@ def create_workspace(
 
 @app.command()
 def inspect(
-    workspace_id: Optional[str] = typer.Argument(None, help="Workspace ID (uses default if omitted)"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    workspace_id: str | None = typer.Argument(None, help="Workspace ID (uses default if omitted)"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Inspect a workspace: peers, sessions, config."""
@@ -216,8 +224,8 @@ def delete(
 @app.command()
 def chat(
     query: str = typer.Argument(help="Question to ask about the workspace"),
-    reasoning: Optional[str] = typer.Option(None, "--reasoning", "-r", help="Reasoning level: minimal, low, medium, high, max"),
-    scope: Optional[list[str]] = typer.Option(
+    reasoning: str | None = typer.Option(None, "--reasoning", "-r", help="Reasoning level: minimal, low, medium, high, max"),
+    scope: list[str] | None = typer.Option(
         None,
         "--scope",
         help="Recall only from this scope. Repeat or comma-separate for several (explicit conclusions only). Excludes -s.",
@@ -227,8 +235,8 @@ def chat(
         "--evidence",
         help="Also report what the answer was built from: the conclusions and messages read and the tools called.",
     ),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
-    session: Optional[str] = typer.Option(None, "--session", "-s", help="Override session ID"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    session: str | None = typer.Option(None, "--session", "-s", help="Override session ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Query the dialectic across all peers in the workspace."""
@@ -278,7 +286,7 @@ def chat(
 @app.command()
 def search(
     query: str = typer.Argument(help="Search query"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
     limit: int = typer.Option(10, help="Max results"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
@@ -308,10 +316,10 @@ def search(
 
 @app.command("queue-status")
 def queue_status(
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
-    session: Optional[str] = typer.Option(None, "--session", "-s", help="Override session ID"),
-    observer: Optional[str] = typer.Option(None, help="Filter by observer peer"),
-    sender: Optional[str] = typer.Option(None, help="Filter by sender peer"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    session: str | None = typer.Option(None, "--session", "-s", help="Override session ID"),
+    observer: str | None = typer.Option(None, help="Filter by observer peer"),
+    sender: str | None = typer.Option(None, help="Filter by sender peer"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Get queue processing status."""

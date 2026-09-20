@@ -14,8 +14,12 @@ import typer
 from honcho import (
     APIError,
     AuthenticationError,
-    ConnectionError as HonchoConnectionError,
     Honcho,
+)
+from honcho import (
+    ConnectionError as HonchoConnectionError,
+)
+from honcho import (
     TimeoutError as HonchoTimeoutError,
 )
 from rich.console import Console

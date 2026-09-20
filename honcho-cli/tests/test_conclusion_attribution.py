@@ -11,9 +11,8 @@ import os
 from unittest.mock import MagicMock, patch
 
 import pytest
-from typer.testing import CliRunner
-
 from honcho_cli.main import app
+from typer.testing import CliRunner
 
 
 @pytest.fixture

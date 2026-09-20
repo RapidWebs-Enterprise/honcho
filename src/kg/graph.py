@@ -8,7 +8,6 @@ via SQLAlchemy async sessions.
 import logging
 from collections import deque
 from datetime import datetime
-from typing import Any
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession

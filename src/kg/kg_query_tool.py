@@ -8,9 +8,8 @@ See SPEC-001 v3.0 §3.6 for design.
 
 from typing import Any
 
-from src.kg.graph import find_path, traverse
 from src.dependencies import tracked_db
-
+from src.kg.graph import find_path, traverse
 
 KG_QUERY_TOOL_DEFINITION: dict[str, Any] = {
     "name": "kg_query",
@@ -75,7 +74,7 @@ async def handle_kg_query(
     direction = tool_input.get("direction", "outgoing")
     if direction not in ("outgoing", "incoming", "both"):
         direction = "outgoing"
-    rel_types = tool_input.get("relationship_types", None)
+    rel_types = tool_input.get("relationship_types")
     if isinstance(rel_types, str) and rel_types:
         rel_types = [r.strip() for r in rel_types.split(",")]
     else:
@@ -110,7 +109,7 @@ async def handle_kg_query(
         )
 
         # Apply temporal decay if enabled
-        from src.utils.temporal_decay import get_decay_config, apply_decay
+        from src.utils.temporal_decay import apply_decay, get_decay_config
         decay_config = get_decay_config()
         if decay_config["enabled"] and results:
             results = apply_decay(
@@ -200,6 +199,7 @@ KG_ENTITY_SEARCH_TOOL: dict[str, Any] = {
 async def _kg_count_entities(db) -> int:
     """Quick check: how many entities are in the KG for this workspace?"""
     from sqlalchemy import func, select
+
     from src.kg.models import KGEntity
     count = await db.scalar(select(func.count(KGEntity.id)))
     return count or 0
@@ -229,6 +229,7 @@ async def handle_kg_entity_search(
             )
 
         from sqlalchemy import or_, select
+
         from src.kg.models import KGEntity
 
         stmt = select(KGEntity).where(
@@ -329,6 +330,7 @@ async def handle_kg_peer_entities(
             )
 
         from sqlalchemy import select
+
         from src.kg.models import KGEntity, KGRelationship
 
         stmt = select(KGEntity).where(

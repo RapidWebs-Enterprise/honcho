@@ -3,16 +3,19 @@
 from __future__ import annotations
 
 import json
-from typing import Optional
 
 import typer
 
+from honcho_cli._help import HonchoTyperGroup
 from honcho_cli.commands.workspace import _handle_error
+from honcho_cli.common import (
+    add_common_options,
+    get_client,
+    get_resolved_config,
+    handle_cmd_flags,
+)
 from honcho_cli.output import print_error, print_result, status, use_json
 from honcho_cli.validation import validate_resource_id
-
-from honcho_cli._help import HonchoTyperGroup
-from honcho_cli.common import add_common_options, get_client, get_resolved_config, handle_cmd_flags
 
 app = typer.Typer(cls=HonchoTyperGroup, help="List, search, create, and delete peer conclusions (Honcho's memory atoms).")
 add_common_options(app)
@@ -73,21 +76,21 @@ def _require_observer(observer: str | None) -> str:
 
 @app.command("list")
 def list_conclusions(
-    observer: Optional[str] = typer.Option(None, "--observer", help="Observer peer ID"),
-    observed: Optional[str] = typer.Option(None, "--observed", help="Observed peer ID"),
+    observer: str | None = typer.Option(None, "--observer", help="Observer peer ID"),
+    observed: str | None = typer.Option(None, "--observed", help="Observed peer ID"),
     limit: int = typer.Option(10, "--limit", help="Max results"),
-    level: Optional[str] = typer.Option(
+    level: str | None = typer.Option(
         None,
         "--level",
         help="Only this reasoning level: explicit, deductive, inductive, contradiction",
     ),
-    derived_from: Optional[str] = typer.Option(
+    derived_from: str | None = typer.Option(
         None,
         "--derived-from",
         help="Only conclusions derived from this conclusion ID",
     ),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
-    peer: Optional[str] = typer.Option(None, "--peer", "-p", help="Override peer ID"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    peer: str | None = typer.Option(None, "--peer", "-p", help="Override peer ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """List conclusions."""
@@ -121,16 +124,16 @@ def list_conclusions(
 @app.command()
 def search(
     query: str = typer.Argument(help="Search query"),
-    observer: Optional[str] = typer.Option(None, "--observer", help="Observer peer ID"),
-    observed: Optional[str] = typer.Option(None, "--observed", help="Observed peer ID"),
+    observer: str | None = typer.Option(None, "--observer", help="Observer peer ID"),
+    observed: str | None = typer.Option(None, "--observed", help="Observed peer ID"),
     top_k: int = typer.Option(10, help="Max results"),
-    level: Optional[str] = typer.Option(
+    level: str | None = typer.Option(
         None,
         "--level",
         help="Only this reasoning level: explicit, deductive, inductive, contradiction",
     ),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
-    peer: Optional[str] = typer.Option(None, "--peer", "-p", help="Override peer ID"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    peer: str | None = typer.Option(None, "--peer", "-p", help="Override peer ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Semantic search over conclusions."""
@@ -158,7 +161,7 @@ def search(
 @app.command()
 def get(
     conclusion_ids: list[str] = typer.Argument(help="Conclusion IDs to fetch"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Fetch conclusions by ID, from anywhere in the workspace.
@@ -194,7 +197,7 @@ def get(
 def derived(
     conclusion_id: str = typer.Argument(help="The premise conclusion ID"),
     limit: int = typer.Option(10, "--limit", help="Max results"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """List the conclusions derived FROM a conclusion.
@@ -225,11 +228,11 @@ def derived(
 @app.command()
 def create(
     content: str = typer.Argument(help="Conclusion content or JSON payload"),
-    observer: Optional[str] = typer.Option(None, "--observer", help="Observer peer ID"),
-    observed: Optional[str] = typer.Option(None, "--observed", help="Observed peer ID"),
-    session_id: Optional[str] = typer.Option(None, "--session", "-s", help="Session context"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
-    peer: Optional[str] = typer.Option(None, "--peer", "-p", help="Override peer ID"),
+    observer: str | None = typer.Option(None, "--observer", help="Observer peer ID"),
+    observed: str | None = typer.Option(None, "--observed", help="Observed peer ID"),
+    session_id: str | None = typer.Option(None, "--session", "-s", help="Session context"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    peer: str | None = typer.Option(None, "--peer", "-p", help="Override peer ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Create a conclusion."""
@@ -278,11 +281,11 @@ def create(
 @app.command()
 def delete(
     conclusion_id: str = typer.Argument(help="Conclusion ID to delete"),
-    observer: Optional[str] = typer.Option(None, "--observer", help="Observer peer ID"),
-    observed: Optional[str] = typer.Option(None, "--observed", help="Observed peer ID"),
+    observer: str | None = typer.Option(None, "--observer", help="Observer peer ID"),
+    observed: str | None = typer.Option(None, "--observed", help="Observed peer ID"),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
-    peer: Optional[str] = typer.Option(None, "--peer", "-p", help="Override peer ID"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    peer: str | None = typer.Option(None, "--peer", "-p", help="Override peer ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Delete a conclusion."""

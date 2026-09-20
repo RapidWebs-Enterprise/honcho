@@ -8,7 +8,6 @@ Sentry re-initialization (the API process already handles both).
 import asyncio
 import logging
 import time
-from typing import Optional
 
 from src.deriver.queue_manager import QueueManager
 
@@ -27,7 +26,7 @@ class InProcessQueueManager(QueueManager):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._in_process_task: Optional[asyncio.Task[None]] = None
+        self._in_process_task: asyncio.Task[None] | None = None
         self.healthy: bool = False
         self.started_at: float = 0.0
     
@@ -76,7 +75,7 @@ class InProcessQueueManager(QueueManager):
         # Wait for graceful shutdown with timeout
         try:
             await asyncio.wait_for(self._in_process_task, timeout=10.0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("In-process deriver did not stop gracefully, cancelling...")
             self._in_process_task.cancel()
             try:

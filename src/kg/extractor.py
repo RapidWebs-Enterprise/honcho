@@ -19,8 +19,8 @@ from src.config import settings
 from src.kg.extraction_output import KGExtractionOutput
 from src.kg.extraction_prompt import KG_EXTRACTION_PROMPT
 from src.kg.extraction_schema import validate_extraction_output
-from src.kg.resolver import resolve_entity
 from src.kg.relationship_manager import create_or_update_relationship
+from src.kg.resolver import resolve_entity
 
 logger = logging.getLogger(__name__)
 
@@ -154,10 +154,10 @@ async def _call_kg_llm(
         TimeoutError: If the LLM call exceeds EXTRACTION_TIMEOUT_SECONDS
         ValueError: If the response doesn't match the expected schema
     """
+    from src.deriver.deriver import _get_deriver_model_config
     from src.llm import honcho_llm_call
     from src.llm.types import LLMTelemetryContext
     from src.telemetry.events.llm import CallPurpose
-    from src.deriver.deriver import _get_deriver_model_config
 
     # Build the prompt
     prompt = prompt_template.format(message=message_content)

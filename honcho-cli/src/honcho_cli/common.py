@@ -13,17 +13,14 @@ no-op if the same flag was already set at an outer level.
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import Optional
 
 import typer
-
 from honcho import Honcho
 
 from honcho_cli import oauth
 from honcho_cli.config import CLIConfig, OAuthTokens, get_client_kwargs
 from honcho_cli.output import print_error, set_json_mode
 from honcho_cli.validation import validate_resource_id
-
 
 # Global overrides from flags (commands read these)
 _global_overrides: dict[str, str | None] = {
@@ -150,9 +147,9 @@ def add_common_options(app: typer.Typer) -> None:
     def _callback(
         ctx: typer.Context,
         json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
-        workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
-        peer: Optional[str] = typer.Option(None, "--peer", "-p", help="Override peer ID"),
-        session: Optional[str] = typer.Option(None, "--session", "-s", help="Override session ID"),
+        workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+        peer: str | None = typer.Option(None, "--peer", "-p", help="Override peer ID"),
+        session: str | None = typer.Option(None, "--session", "-s", help="Override session ID"),
     ) -> None:
         if json_output:
             set_json_mode(True)

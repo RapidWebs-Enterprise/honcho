@@ -21,7 +21,6 @@ from pathlib import Path
 
 import click
 import typer.main
-
 from honcho_cli.main import app
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

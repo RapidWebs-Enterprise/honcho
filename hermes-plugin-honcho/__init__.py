@@ -15,20 +15,27 @@ import os
 import re
 import threading
 import time
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any, Dict, List, Optional
 
+from agent.coding_context import INTERACTIVE_CODING_PLATFORMS as _LOCAL_PLATFORMS
 from agent.memory_manager import sanitize_context
 from agent.memory_provider import MemoryProvider, is_trivial_prompt
-from agent.coding_context import INTERACTIVE_CODING_PLATFORMS as _LOCAL_PLATFORMS
 from agent.turn_author import a2a_key
-from .client import HonchoClientConfig, resolve_config_path
-from .client import _host_block, _HostLookup
-from .client import join_plugin_threads, spawn_context_thread
-from .dialectic import DialecticMixin
-from .session_peers import assistant_peer_id_for, sanitize_peer_id
-from .session_context import usable_honcho_summary
-from .tool_schemas import ALL_TOOL_SCHEMAS
 from tools.registry import tool_error
+
+from .client import (
+    HonchoClientConfig,
+    _host_block,
+    _HostLookup,
+    join_plugin_threads,
+    resolve_config_path,
+    spawn_context_thread,
+)
+from .dialectic import DialecticMixin
+from .session_context import usable_honcho_summary
+from .session_peers import assistant_peer_id_for, sanitize_peer_id
+from .tool_schemas import ALL_TOOL_SCHEMAS
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +97,7 @@ _FLAG_WORDS = {"1": True, "true": True, "yes": True, "on": True,
                "0": False, "false": False, "no": False, "off": False, "": False}
 
 
-def _as_flag(raw: Any, default: Optional[bool]) -> Optional[bool]:
+def _as_flag(raw: Any, default: bool | None) -> bool | None:
     """A config or env value read as a boolean. Unrecognized strings keep ``default``."""
     if isinstance(raw, str):
         return _FLAG_WORDS.get(raw.strip().lower(), default)
@@ -112,7 +119,7 @@ _PREWARM_QUERY = "Summarize what you know about this user. Focus on preferences,
 class HonchoMemoryProvider(DialecticMixin, MemoryProvider):
     """Honcho AI-native memory with dialectic Q&A and persistent user modeling."""
 
-    def backup_paths(self) -> List[str]:
+    def backup_paths(self) -> list[str]:
         """Whole ~/.honcho dir (peer/session config when no profile-local honcho.json exists)."""
         try:
             from .client import resolve_global_config_path
@@ -120,23 +127,23 @@ class HonchoMemoryProvider(DialecticMixin, MemoryProvider):
         except Exception:
             return []
 
-    def __init__(self, query_rewriter: Optional[Callable[[str], str]] = None):
+    def __init__(self, query_rewriter: Callable[[str], str] | None = None):
         self._manager = None   # HonchoSessionManager
         self._config = None    # HonchoClientConfig
         self._session_key = ""
         self._query_rewriter = query_rewriter
         self._prefetch_result = ""
         self._prefetch_lock = threading.Lock()
-        self._prefetch_thread: Optional[threading.Thread] = None
-        self._sync_thread: Optional[threading.Thread] = None
-        self._memwrite_thread: Optional[threading.Thread] = None
+        self._prefetch_thread: threading.Thread | None = None
+        self._sync_thread: threading.Thread | None = None
+        self._memwrite_thread: threading.Thread | None = None
         self._recall_mode = "hybrid"  # "context", "tools", or "hybrid"
         self._recall_sync = False
         self._recall_generation = object()
-        self._recall_sync_thread: Optional[threading.Thread] = None
+        self._recall_sync_thread: threading.Thread | None = None
         self._recall_sync_lock = threading.Lock()
         # Base context cache — refreshed on context_cadence, not frozen.
-        self._base_context_cache: Optional[str] = None
+        self._base_context_cache: str | None = None
         self._base_context_lock = threading.Lock()
 
         # Recall cadence state (overwritten from config in initialize()).
@@ -146,10 +153,10 @@ class HonchoMemoryProvider(DialecticMixin, MemoryProvider):
         # (config path, mtime_ns, size) -> identity_signature() values.
         self._identity_signature_memo: dict[tuple, dict[str, Any]] = {}
         # Injection audit. Off unless the logging key enables it: the record holds the user's representation.
-        self._injection_log_path: Optional[str] = None
+        self._injection_log_path: str | None = None
         self._injection_log_lock = threading.Lock()
         # Pinned injection.sessionStart names; None means unpinned and everything renders.
-        self._session_start_components: Optional[frozenset] = None
+        self._session_start_components: frozenset | None = None
         self._query_rewrite_enabled = False
         self._injection_frequency = "every-turn"  # or "first-turn"
         self._context_cadence = 1   # minimum turns between context API calls
@@ -167,15 +174,15 @@ class HonchoMemoryProvider(DialecticMixin, MemoryProvider):
 
         # Tools-only mode may defer session initialization until a tool call.
         self._session_initialized = False
-        self._lazy_init_kwargs: Optional[dict] = None
-        self._lazy_init_session_id: Optional[str] = None
-        self._init_thread: Optional[threading.Thread] = None
+        self._lazy_init_kwargs: dict | None = None
+        self._lazy_init_session_id: str | None = None
+        self._init_thread: threading.Thread | None = None
         self._init_lock = threading.Lock()
         # Init auth failures live here because the failed manager is discarded.
-        self._init_auth_failure: Optional[str] = None
+        self._init_auth_failure: str | None = None
         self._init_auth_notice_emitted = False
         # Set when no user peer could be named (no runtime identity, no peerName). Init is not retried.
-        self._init_peer_failure: Optional[str] = None
+        self._init_peer_failure: str | None = None
         self._init_peer_platform: str = "cli"
         self._init_peer_notice_emitted = False
         self._cron_skipped = False  # cron and flush contexts disable the plugin entirely
@@ -196,7 +203,9 @@ class HonchoMemoryProvider(DialecticMixin, MemoryProvider):
         """Merge ``values`` into $HERMES_HOME/honcho.json (Honcho SDK native format); a file that does not parse raises.
         Holds the token refresh locks so a rotation cannot land between the read and the write."""
         from pathlib import Path
+
         from utils import atomic_json_write
+
         from .oauth import _config_refresh_lock, _read_config_strict, _refresh_lock
         config_path = Path(hermes_home) / "honcho.json"
         with _refresh_lock, _config_refresh_lock(config_path):
@@ -212,6 +221,7 @@ class HonchoMemoryProvider(DialecticMixin, MemoryProvider):
     def post_setup(self, hermes_home: str, config: dict) -> None:
         """Run the full Honcho setup wizard after provider selection."""
         import types
+
         from .cli import cmd_setup
         cmd_setup(types.SimpleNamespace())
 
@@ -228,7 +238,10 @@ class HonchoMemoryProvider(DialecticMixin, MemoryProvider):
                 self._cron_skipped = True
                 return
 
-            from .client import HonchoClientConfig, get_honcho_client  # noqa: F401 — ImportError probe
+            from .client import (  # noqa: F401 — ImportError probe
+                HonchoClientConfig,
+                get_honcho_client,
+            )
             from .session import HonchoSessionManager  # noqa: F401
 
             cfg = HonchoClientConfig.from_global_config()
@@ -416,7 +429,7 @@ class HonchoMemoryProvider(DialecticMixin, MemoryProvider):
     # ----- Prompt / prefetch -----
 
     @staticmethod
-    def _resolve_session_start(look: _HostLookup) -> Optional[frozenset]:
+    def _resolve_session_start(look: _HostLookup) -> frozenset | None:
         """The pinned ``injection.sessionStart`` list as a set, or None when unpinned.
         An explicit empty list means inject nothing and stays distinct from unset."""
         injection = look.present("injection")
@@ -455,7 +468,7 @@ class HonchoMemoryProvider(DialecticMixin, MemoryProvider):
         return _PROMPT_HEADERS.get(self._recall_mode, _PROMPT_HEADERS["hybrid"])
 
     @staticmethod
-    def _resolve_injection_log_path(look: _HostLookup) -> Optional[str]:
+    def _resolve_injection_log_path(look: _HostLookup) -> str | None:
         """Where to append the injection audit, or None to keep it off.
         The ``logging`` key or HONCHO_LOGGING switches it on. HONCHO_INJECTION_LOG overrides the destination."""
         explicit = os.environ.get("HONCHO_INJECTION_LOG")
@@ -684,7 +697,7 @@ class HonchoMemoryProvider(DialecticMixin, MemoryProvider):
     # Shared with the core prefetch gate so the two classifiers can never drift apart.
     _is_trivial_prompt = staticmethod(is_trivial_prompt)
 
-    def identity_signature(self) -> Dict[str, Any]:
+    def identity_signature(self) -> dict[str, Any]:
         """Identity-mapping values from honcho.json that bust a cached gateway agent when they change.
 
         Memoized on the file's mtime and size, so the per-message call is one stat. ``{}`` when the
@@ -767,7 +780,7 @@ class HonchoMemoryProvider(DialecticMixin, MemoryProvider):
 
     def sync_turn(
         self, user_content: str, assistant_content: str, *, session_id: str = "",
-        turn_author: Optional[Dict[str, Any]] = None,
+        turn_author: dict[str, Any] | None = None,
     ) -> None:
         """Record the conversation turn in Honcho (non-blocking), chunking messages that
         exceed the Honcho API limit. Honors saveMessages: false. ``turn_author`` names who wrote
@@ -827,7 +840,7 @@ class HonchoMemoryProvider(DialecticMixin, MemoryProvider):
             self._sync_thread.join(timeout=5.0)
         self._sync_thread = self._spawn_write(_sync, "honcho-sync", "Honcho sync_turn failed: %s")
 
-    def _a2a_session_key(self, author: Dict[str, Any]) -> str:
+    def _a2a_session_key(self, author: dict[str, Any]) -> str:
         """Honcho session for one sender bot's turns into this agent, named from core's ``a2a_key``.
 
         This agent's ``aiPeer`` is in the key because two profiles can share a workspace and a session
@@ -838,7 +851,7 @@ class HonchoMemoryProvider(DialecticMixin, MemoryProvider):
         key = f"{self._session_key}:{prefix}:{recipient}:{sanitize_peer_id(ident)}-{digest}"
         return HonchoClientConfig._enforce_session_id_limit(key, key)
 
-    def _bot_turn_write_refusal(self) -> Optional[str]:
+    def _bot_turn_write_refusal(self) -> str | None:
         """Refusal for memory writes while a bot-authored turn runs. Conclusions and cards describe the human."""
         if self._turn_author.get("is_bot"):
             return tool_error("Honcho memory writes are off during a bot-to-bot turn. Conclusions and profile edits describe the human.")
@@ -857,7 +870,7 @@ class HonchoMemoryProvider(DialecticMixin, MemoryProvider):
         return thread
 
     def on_memory_write(
-        self, action: str, target: str, content: str, metadata: Optional[Dict[str, Any]] = None,
+        self, action: str, target: str, content: str, metadata: dict[str, Any] | None = None,
     ) -> None:
         """Mirror built-in user-profile writes as Honcho conclusions (``metadata`` accepted
         for interface compatibility, not yet threaded into the conclusion payload)."""
@@ -871,7 +884,7 @@ class HonchoMemoryProvider(DialecticMixin, MemoryProvider):
         self._memwrite_thread = self._spawn_write(lambda: self._manager.create_conclusion(self._session_key, content),
                                                   "honcho-memwrite", "Honcho memory mirror failed: %s")
 
-    def on_session_end(self, messages: List[Dict[str, Any]]) -> None:
+    def on_session_end(self, messages: list[dict[str, Any]]) -> None:
         """Flush all pending messages to Honcho on session end."""
         if not self._writes_enabled() or not self._manager:
             return
@@ -886,19 +899,19 @@ class HonchoMemoryProvider(DialecticMixin, MemoryProvider):
 
     # ----- Tools -----
 
-    def get_tool_schemas(self) -> List[Dict[str, Any]]:
+    def get_tool_schemas(self) -> list[dict[str, Any]]:
         """Tool schemas by recall_mode; context-only mode exposes no Honcho tools."""
         if self._cron_skipped or self._recall_mode == "context":
             return []
         return list(ALL_TOOL_SCHEMAS)
 
-    def _empty_profile_hint(self, peer: str) -> Dict[str, Any]:
+    def _empty_profile_hint(self, peer: str) -> dict[str, Any]:
         """Diagnostic hint for an empty honcho_profile card, so the model can explain WHY
         instead of surfacing a cryptic "no facts" to the user. Likely causes, in order:
         observation disabled for the peer; card not accumulated yet (fresh peer / few
         dialectic cycles); self-hosted Honcho < 3.x without peer-card support."""
         cfg = self._config
-        reasons: List[str] = []
+        reasons: list[str] = []
         kind = "user" if peer == "user" else "ai"
         if cfg is not None and not (getattr(cfg, f"{kind}_observe_me", True) or getattr(cfg, f"{kind}_observe_others", True)):
             reasons.append(f"observation is disabled for peer '{peer}' (user_observe_me/ai_observe_me in config)")
@@ -1279,6 +1292,7 @@ def __getattr__(name):  # PEP 562 — lazy so no import cycles
     if target is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     import importlib
+
     from hermes_cli.plugin_compat import warn_once
     warn_once(__name__, name, *target)
     return getattr(importlib.import_module(target[0]), target[1])

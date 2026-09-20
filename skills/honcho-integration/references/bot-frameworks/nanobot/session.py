@@ -5,15 +5,13 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
-
 from nanobot.honcho.client import get_honcho_client
 
 if TYPE_CHECKING:
     from honcho import Honcho
-    from honcho.api_types import SessionPeerConfig
 
 
 @dataclass

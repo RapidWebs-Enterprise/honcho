@@ -4,15 +4,15 @@ Does NOT depend on conftest fixtures. Uses mock DB sessions matching
 the pattern from test_comprehensive.py.
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-import importlib
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 
 # ═══════════════════════════════════════════════════════════════════
 # Mock helpers

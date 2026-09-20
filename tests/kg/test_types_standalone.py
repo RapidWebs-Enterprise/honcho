@@ -1,20 +1,22 @@
 """Standalone tests for KG entity and relationship type registries."""
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import pytest
+
+from src.exceptions import ValidationException
 from src.kg.entity_types import (
-    KGEntityType,
     VALID_ENTITY_TYPES,
+    KGEntityType,
     validate_entity_type,
 )
 from src.kg.relationship_types import (
     VALID_RELATIONSHIP_TYPES,
     validate_relationship_type,
 )
-from src.exceptions import ValidationException
 
 
 class TestEntityTypesStandalone:

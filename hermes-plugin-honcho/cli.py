@@ -8,11 +8,20 @@ import os
 import sys
 from pathlib import Path
 
-from hermes_constants import get_hermes_home
-from .client import _first_parsed, _host_block, profile_host_key, resolve_active_host, resolve_config_path, HOST
-from .session_peers import sanitize_peer_id
 from hermes_cli.config import cfg_get
+from hermes_constants import get_hermes_home
+
 from utils import read_json_or_empty
+
+from .client import (
+    HOST,
+    _first_parsed,
+    _host_block,
+    profile_host_key,
+    resolve_active_host,
+    resolve_config_path,
+)
+from .session_peers import sanitize_peer_id
 
 RULE = "─" * 40
 REASONING_LEVELS = ("minimal", "low", "medium", "high", "max")
@@ -137,8 +146,9 @@ def _write_config(cfg: dict, path: Path | None = None) -> None:
     """Persist ``cfg`` under the token refresh's cross-process lock. The object _read_config() returned
     has only its edits applied onto a fresh read of disk; a plain dict is written whole. A read that
     resolved to a seed file (~/.honcho or a profile) is written whole only while ``path`` does not exist."""
-    from .oauth import _config_refresh_lock, _refresh_lock
     from utils import atomic_json_write
+
+    from .oauth import _config_refresh_lock, _refresh_lock
     path = path or _local_config_path()
     # The file lock is best-effort; _refresh_lock is what keeps an in-process refresh thread out.
     with _refresh_lock, _config_refresh_lock(path):
@@ -583,7 +593,9 @@ def _ensure_sdk_installed() -> bool:
         print("  Skipping install. Run: pip install 'honcho-ai==2.2.0'\n")
         return False
     print("  Installing honcho-ai...", flush=True)
-    from tools.lazy_deps import install_specs  # env-aware: sealed hosted venvs redirect to the data volume
+    from tools.lazy_deps import (
+        install_specs,  # env-aware: sealed hosted venvs redirect to the data volume
+    )
     result = install_specs(["honcho-ai==2.2.0"])
     if result.ok:
         print("  Installed.\n")
@@ -648,7 +660,12 @@ def _setup_local_auth(cfg: dict, hermes_host: dict) -> None:
 def _setup_device_login(cfg: dict, hermes_host: dict, write_path: Path, *, open_browser: bool) -> bool:
     """RFC 8628 device-code sign-in. Returns False if setup must abort."""
     from .oauth_flow import (
-        AccessDenied, AuthorizationTimeout, DeviceCode, DeviceCodeExpired, DeviceFlowError, authorize_via_device_code,
+        AccessDenied,
+        AuthorizationTimeout,
+        DeviceCode,
+        DeviceCodeExpired,
+        DeviceFlowError,
+        authorize_via_device_code,
     )
 
     def _show(device: DeviceCode) -> None:
@@ -683,8 +700,9 @@ def _setup_device_login(cfg: dict, hermes_host: dict, write_path: Path, *, open_
 def _setup_browser_login(cfg: dict, hermes_host: dict, write_path: Path) -> bool:
     """Loopback OAuth sign-in. Tokens merge into the in-memory cfg so the wizard's final save
     keeps them; settings stay wizard-owned (apply_config=False). Returns False on abort."""
-    from .oauth_flow import authorize_via_loopback
     import webbrowser
+
+    from .oauth_flow import authorize_via_loopback
 
     def _open(url: str) -> None:
         print(f"\n  Open this link to authorize (waiting up to 5 minutes):\n\n    {url}\n")
@@ -1146,6 +1164,7 @@ def _peers_map_client(workspace: str | None = None):
     """(client, config) for the active host, or (None, None) offline. ``workspace`` overrides the configured one."""
     try:
         from dataclasses import replace
+
         from .client import HonchoClientConfig, get_honcho_client
         hcfg = HonchoClientConfig.from_global_config(host=_host_key())
         if not (hcfg.api_key or hcfg.base_url):

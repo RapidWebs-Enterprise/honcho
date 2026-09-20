@@ -5,7 +5,7 @@ making recent information more relevant in semantic search results.
 """
 
 import math
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 

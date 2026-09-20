@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import pytest
 import typer
-
-from honcho_cli.recall import parse_csv_repeatable, reject_incompatible_recall, scope_for_sdk
+from honcho_cli.recall import (
+    parse_csv_repeatable,
+    reject_incompatible_recall,
+    scope_for_sdk,
+)
 
 
 class TestParseCsvRepeatable:

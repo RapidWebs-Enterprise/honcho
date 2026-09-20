@@ -6,9 +6,10 @@ No DB, no app runtime required. Run from repo root:
     HONCHO_CONFIG_TOML_DISABLED=1 .venv/bin/python -m pytest _unittests/reranker -q
 """
 
+from unittest.mock import AsyncMock, MagicMock
+
 import httpx
 import pytest
-from unittest.mock import AsyncMock, MagicMock
 
 from src.reranker_client import RerankerClient, get_reranker_client
 

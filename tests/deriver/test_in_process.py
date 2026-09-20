@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+
 from src.deriver.in_process import InProcessQueueManager
 
 
@@ -29,7 +30,6 @@ async def test_deriver_signal_handlers_not_registered():
     """In-process mode should NOT register signal handlers (API manages those)."""
     # Verify that the InProcessQueueManager doesn't call _add_signal_handlers
     # This is implicit — the start() method skips signal handler setup.
-    from src.deriver.queue_manager import QueueManager
     
     # InProcessQueueManager inherits start() which skips signal handlers
     # The key difference is it calls reconciler_scheduler.start() directly

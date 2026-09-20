@@ -24,8 +24,12 @@ from src.db import (
     register_db_query_instrumentation,
     request_context,
 )
-from src.kg.extraction_queue import ExtractionQueue, init_extraction_queue, shutdown_extraction_queue
 from src.exceptions import HonchoException
+from src.kg.extraction_queue import (
+    ExtractionQueue,
+    init_extraction_queue,
+    shutdown_extraction_queue,
+)
 from src.reconciler import ReconcilerScheduler, set_reconciler_scheduler
 from src.routers import (
     conclusions,

@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-import queue
 import logging
+import queue
 import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from .client import spawn_context_thread
-from .client import get_honcho_client
+from .client import get_honcho_client, spawn_context_thread
 from .session_auth import HonchoAuthError, SessionAuthMixin
 from .session_context import SessionContextMixin
 from .session_migration import SessionMigrationMixin
@@ -652,8 +651,8 @@ class HonchoSessionManager(SessionAuthMixin, SessionPeersMixin, SessionContextMi
 # Names external plugins imported from this module before the Sep 2026 decomposition.
 # Internal code MUST NOT use these (scripts/check_compat_pointers.py fails CI if it does).
 # The whole block is removed by reverting the commit that added it.
-from typing import Callable  # noqa: F401,E402
-from pathlib import Path  # noqa: F401,E402
 import hashlib  # noqa: F401,E402
 import re  # noqa: F401,E402
+from collections.abc import Callable  # noqa: F401,E402
+from pathlib import Path  # noqa: F401,E402
 # ---- END PLUGIN-COMPAT ----

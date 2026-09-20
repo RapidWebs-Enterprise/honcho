@@ -15,7 +15,11 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
-from honcho_cli.local.env import is_placeholder_key, read_env_file, settings_from_environ
+from honcho_cli.local.env import (
+    is_placeholder_key,
+    read_env_file,
+    settings_from_environ,
+)
 from honcho_cli.output import print_error
 
 SETUP_MODES = ("basic", "advanced")

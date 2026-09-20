@@ -17,7 +17,6 @@ from honcho_cli.branding import BANNER
 from honcho_cli.output import set_json_mode
 from honcho_cli.update_check import maybe_print_update_nag
 
-
 app = typer.Typer(
     name="honcho",
     cls=HonchoTyperGroup,
@@ -83,8 +82,8 @@ def help_cmd(ctx: typer.Context) -> None:
 
 
 # Register command groups
-from honcho_cli.commands.config_cmd import app as config_app
 from honcho_cli.commands.conclusion import app as conclusion_app
+from honcho_cli.commands.config_cmd import app as config_app
 from honcho_cli.commands.message import app as message_app
 from honcho_cli.commands.peer import app as peer_app
 from honcho_cli.commands.scope import app as scope_app

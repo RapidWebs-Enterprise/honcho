@@ -6,10 +6,9 @@ was actually stored — no Markdown reflow, no truncated identifiers.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
-
 from honcho_cli import output
 from honcho_cli.output import _format_timestamp, print_transcript
 
@@ -71,7 +70,7 @@ class TestFormatTimestamp:
         assert (a, b) == ("2026-01-01T00:00:03.000Z", "2026-01-01T00:00:03.080Z")
 
     def test_accepts_datetime_objects(self):
-        value = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        value = datetime(2026, 1, 1, 12, 0, 0, tzinfo=UTC)
         assert _format_timestamp(value) == "2026-01-01T12:00:00.000Z"
 
     @pytest.mark.parametrize("value", [None, ""])

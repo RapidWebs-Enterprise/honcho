@@ -6,11 +6,11 @@ extracted entities, typed relationships between them, and query telemetry.
 See SPEC-001 v3.0 §3.1 for full schema documentation.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
+from nanoid import generate as generate_nanoid
 from sqlalchemy import (
     Boolean,
-    Column,
     DateTime,
     Float,
     ForeignKey,
@@ -22,13 +22,11 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from nanoid import generate as generate_nanoid
-
 from src.db import Base
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class KGEntity(Base):

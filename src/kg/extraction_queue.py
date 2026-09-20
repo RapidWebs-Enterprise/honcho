@@ -6,9 +6,7 @@ Manages batching and flushing of messages for KG extraction.
 import asyncio
 import logging
 import time
-from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any
 
 from src.config import settings
 

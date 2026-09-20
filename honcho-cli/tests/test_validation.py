@@ -7,7 +7,6 @@ between that and the API. These tests pin the accept/reject rules.
 from __future__ import annotations
 
 import pytest
-
 from honcho_cli.validation import validate_resource_id
 
 

@@ -4,17 +4,12 @@ from __future__ import annotations
 
 import json
 import shlex
-from typing import List, Optional
 
 import typer
-
 from honcho import HonchoError, Session
 
-from honcho_cli.commands.workspace import _config_to_dict, _handle_error, _raw_list
-from honcho_cli.output import print_error, print_result, print_transcript, status, use_json
-from honcho_cli.validation import validate_resource_id
-
 from honcho_cli._help import HonchoTyperGroup
+from honcho_cli.commands.workspace import _config_to_dict, _handle_error, _raw_list
 from honcho_cli.common import (
     add_common_options,
     get_client,
@@ -22,6 +17,14 @@ from honcho_cli.common import (
     get_resolved_config,
     handle_cmd_flags,
 )
+from honcho_cli.output import (
+    print_error,
+    print_result,
+    print_transcript,
+    status,
+    use_json,
+)
+from honcho_cli.validation import validate_resource_id
 
 app = typer.Typer(cls=HonchoTyperGroup, help="List, inspect, view, create, delete, and manage conversation sessions and their peers.")
 add_common_options(app)
@@ -39,8 +42,8 @@ def _get_session_id(session_id: str | None) -> str:
 
 @app.command("list")
 def list_sessions(
-    peer_id: Optional[str] = typer.Option(None, "--peer", "-p", help="Filter by peer"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    peer_id: str | None = typer.Option(None, "--peer", "-p", help="Filter by peer"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """List sessions in the workspace."""
@@ -71,9 +74,9 @@ def list_sessions(
 @app.command("create")
 def create_session(
     session_id: str = typer.Argument(help="Session ID to create or get"),
-    peers: Optional[str] = typer.Option(None, "--peers", help="Comma-separated peer IDs to add to the session"),
-    metadata: Optional[str] = typer.Option(None, "--metadata", help="JSON metadata to associate with the session"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    peers: str | None = typer.Option(None, "--peers", help="Comma-separated peer IDs to add to the session"),
+    metadata: str | None = typer.Option(None, "--metadata", help="JSON metadata to associate with the session"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Create or get a session."""
@@ -109,9 +112,9 @@ def create_session(
 
 @app.command()
 def inspect(
-    session_id: Optional[str] = typer.Argument(None, help="Session ID (uses default if omitted)"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
-    session: Optional[str] = typer.Option(None, "--session", "-s", help="Override session ID"),
+    session_id: str | None = typer.Argument(None, help="Session ID (uses default if omitted)"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    session: str | None = typer.Option(None, "--session", "-s", help="Override session ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Inspect a session: peers, message count, summaries, config."""
@@ -222,18 +225,18 @@ def _fetch_all_messages(sess, filters: dict | None) -> tuple[list, int | None]:
 
 @app.command()
 def view(
-    session_id: Optional[str] = typer.Argument(None, help="Session ID (uses default if omitted)"),
-    last: Optional[int] = typer.Option(
+    session_id: str | None = typer.Argument(None, help="Session ID (uses default if omitted)"),
+    last: int | None = typer.Option(
         None,
         "--last",
         help=f"Show only the N most recent messages (default when no --page/--all: {DEFAULT_PAGE_SIZE})",
     ),
-    page_number: Optional[int] = typer.Option(
+    page_number: int | None = typer.Option(
         None,
         "--page",
         help="1-indexed page of the full transcript. Use for page 2+.",
     ),
-    size: Optional[int] = typer.Option(
+    size: int | None = typer.Option(
         None,
         "--size",
         help=f"Messages per page; requires --page (1-{MAX_PAGE_SIZE}, default: {DEFAULT_PAGE_SIZE})",
@@ -245,9 +248,9 @@ def view(
         help="Newest first (default is chronological: oldest at top)",
     ),
     show_ids: bool = typer.Option(False, "--ids", help="Include message IDs in the transcript"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
-    peer: Optional[str] = typer.Option(None, "--peer", "-p", help="Filter by peer ID"),
-    session: Optional[str] = typer.Option(None, "--session", "-s", help="Override session ID"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    peer: str | None = typer.Option(None, "--peer", "-p", help="Filter by peer ID"),
+    session: str | None = typer.Option(None, "--session", "-s", help="Override session ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """View a session transcript as a chat log.
@@ -378,11 +381,11 @@ def view(
 
 @app.command()
 def context(
-    session_id: Optional[str] = typer.Argument(None, help="Session ID (uses default if omitted)"),
-    tokens: Optional[int] = typer.Option(None, help="Token budget"),
+    session_id: str | None = typer.Argument(None, help="Session ID (uses default if omitted)"),
+    tokens: int | None = typer.Option(None, help="Token budget"),
     summary: bool = typer.Option(True, help="Include summary"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
-    session: Optional[str] = typer.Option(None, "--session", "-s", help="Override session ID"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    session: str | None = typer.Option(None, "--session", "-s", help="Override session ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Get session context (what an agent would see)."""
@@ -402,9 +405,9 @@ def context(
 
 @app.command()
 def summaries(
-    session_id: Optional[str] = typer.Argument(None, help="Session ID (uses default if omitted)"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
-    session: Optional[str] = typer.Option(None, "--session", "-s", help="Override session ID"),
+    session_id: str | None = typer.Argument(None, help="Session ID (uses default if omitted)"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    session: str | None = typer.Option(None, "--session", "-s", help="Override session ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Get session summaries (short + long)."""
@@ -428,10 +431,10 @@ def summaries(
 
 @app.command()
 def delete(
-    session_id: Optional[str] = typer.Argument(None, help="Session ID (uses default if omitted)"),
+    session_id: str | None = typer.Argument(None, help="Session ID (uses default if omitted)"),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
-    session: Optional[str] = typer.Option(None, "--session", "-s", help="Override session ID"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    session: str | None = typer.Option(None, "--session", "-s", help="Override session ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Delete a session and all its data. Destructive — requires --yes or interactive confirm."""
@@ -471,9 +474,9 @@ def delete(
 
 @app.command("peers")
 def session_peers(
-    session_id: Optional[str] = typer.Argument(None, help="Session ID (uses default if omitted)"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
-    session: Optional[str] = typer.Option(None, "--session", "-s", help="Override session ID"),
+    session_id: str | None = typer.Argument(None, help="Session ID (uses default if omitted)"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    session: str | None = typer.Option(None, "--session", "-s", help="Override session ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """List peers in a session."""
@@ -494,8 +497,8 @@ def session_peers(
 @app.command("add-peers")
 def add_peers(
     session_id: str = typer.Argument(help="Session ID"),
-    peer_ids: List[str] = typer.Argument(help="Peer IDs to add to the session"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    peer_ids: list[str] = typer.Argument(help="Peer IDs to add to the session"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Add peers to a session."""
@@ -515,8 +518,8 @@ def add_peers(
 @app.command("remove-peers")
 def remove_peers(
     session_id: str = typer.Argument(help="Session ID"),
-    peer_ids: List[str] = typer.Argument(help="Peer IDs to remove from the session"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    peer_ids: list[str] = typer.Argument(help="Peer IDs to remove from the session"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Remove peers from a session."""
@@ -536,10 +539,10 @@ def remove_peers(
 @app.command()
 def search(
     query: str = typer.Argument(help="Search query"),
-    session_id: Optional[str] = typer.Argument(None, help="Session ID (uses default if omitted)"),
+    session_id: str | None = typer.Argument(None, help="Session ID (uses default if omitted)"),
     limit: int = typer.Option(10, help="Max results"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
-    session: Optional[str] = typer.Option(None, "--session", "-s", help="Override session ID"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    session: str | None = typer.Option(None, "--session", "-s", help="Override session ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Search messages in a session."""
@@ -568,12 +571,12 @@ def search(
 @app.command()
 def representation(
     peer_id: str = typer.Argument(help="Peer ID to get representation for"),
-    session_id: Optional[str] = typer.Argument(None, help="Session ID (uses default if omitted)"),
-    target: Optional[str] = typer.Option(None, help="Target peer (what peer_id knows about target)"),
-    search_query: Optional[str] = typer.Option(None, help="Semantic search query to filter conclusions"),
-    max_conclusions: Optional[int] = typer.Option(None, help="Maximum number of conclusions to include"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
-    session: Optional[str] = typer.Option(None, "--session", "-s", help="Override session ID"),
+    session_id: str | None = typer.Argument(None, help="Session ID (uses default if omitted)"),
+    target: str | None = typer.Option(None, help="Target peer (what peer_id knows about target)"),
+    search_query: str | None = typer.Option(None, help="Semantic search query to filter conclusions"),
+    max_conclusions: int | None = typer.Option(None, help="Maximum number of conclusions to include"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    session: str | None = typer.Option(None, "--session", "-s", help="Override session ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Get the representation of a peer within a session."""
@@ -597,9 +600,9 @@ def representation(
 
 @app.command("get-metadata")
 def get_metadata(
-    session_id: Optional[str] = typer.Argument(None, help="Session ID (uses default if omitted)"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
-    session: Optional[str] = typer.Option(None, "--session", "-s", help="Override session ID"),
+    session_id: str | None = typer.Argument(None, help="Session ID (uses default if omitted)"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    session: str | None = typer.Option(None, "--session", "-s", help="Override session ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Get metadata for a session."""
@@ -618,10 +621,10 @@ def get_metadata(
 
 @app.command("set-metadata")
 def set_metadata(
-    session_id: Optional[str] = typer.Argument(None, help="Session ID (uses default if omitted)"),
+    session_id: str | None = typer.Argument(None, help="Session ID (uses default if omitted)"),
     metadata: str = typer.Option(..., "--data", "-d", help="JSON metadata to set (e.g. '{\"key\": \"value\"}')"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
-    session: Optional[str] = typer.Option(None, "--session", "-s", help="Override session ID"),
+    workspace: str | None = typer.Option(None, "--workspace", "-w", help="Override workspace ID"),
+    session: str | None = typer.Option(None, "--session", "-s", help="Override session ID"),
     json_output: bool = typer.Option(False, "--json", help="Force JSON output"),
 ) -> None:
     """Set metadata for a session."""

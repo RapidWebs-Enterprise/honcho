@@ -7,19 +7,19 @@ Run from repo root:
     HONCHO_CONFIG_TOML_DISABLED=1 .venv/bin/python -m pytest _unittests/reranker/test_search_rerank.py -q
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from typing import List
 
-from src.utils.search import search, reciprocal_rank_fusion
+import pytest
+
 from src.models import Message
+from src.utils.search import search
 
 
 class TestSearchRerankIntegration:
     """Tests for cross-encoder reranking integration in search pipeline."""
 
     @pytest.fixture
-    def mock_messages(self) -> List[Message]:
+    def mock_messages(self) -> list[Message]:
         """Create mock Message objects for testing."""
         msgs = []
         for i in range(10):

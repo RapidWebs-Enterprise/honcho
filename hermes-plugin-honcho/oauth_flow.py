@@ -16,10 +16,10 @@ import os
 import secrets
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from typing import Callable
 from urllib.parse import parse_qs, urlencode, urlparse
 
 from . import oauth

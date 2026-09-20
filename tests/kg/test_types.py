@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import pytest
+
 from src.kg.entity_types import (
-    KGEntityType,
     VALID_ENTITY_TYPES,
+    KGEntityType,
     validate_entity_type,
 )
 from src.kg.relationship_types import (
