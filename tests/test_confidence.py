@@ -1,13 +1,11 @@
-"""Tests for confidence scoring module."""
+"""Tests for confidence scoring module - pure unit tests, no DB required."""
 
-import pytest
 from datetime import datetime, timezone, timedelta
 
 from src.utils.confidence import (
     calculate_confidence,
     filter_by_confidence,
     enrich_with_provenance,
-    SOURCE_CREDIBILITY,
 )
 
 
@@ -22,7 +20,7 @@ class TestCalculateConfidence:
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
         confidence = calculate_confidence(conclusion)
-        assert confidence > 0.8  # High due to tool source + recent
+        assert confidence > 0.8
 
     def test_conversation_medium_confidence(self):
         """Conversations should have medium base confidence."""
@@ -95,7 +93,6 @@ class TestCalculateConfidence:
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
         confidence = calculate_confidence(conclusion)
-        # Should use default 0.5 for unknown source
         assert 0.3 < confidence < 0.7
 
     def test_clamps_to_one(self):
@@ -127,7 +124,6 @@ class TestCalculateConfidence:
             "created_at": future,
         }
         confidence = calculate_confidence(conclusion)
-        # Should not get artificial boost from future date
         assert confidence < 0.9
 
 
