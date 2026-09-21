@@ -2,12 +2,14 @@
 
 import asyncio
 import logging
-from datetime import UTC, datetime, timedelta
+from contextlib import suppress
+from datetime import datetime, timezone, timedelta
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.db import get_async_session
+from src.dependencies import tracked_db
 from src.kg.episodic_models import Episode, Insight, Summary
 
 logger = logging.getLogger(__name__)
@@ -107,53 +109,51 @@ async def process_episode_queue(db: AsyncSession, limit: int = 100) -> dict[str,
     return stats
 
 
-async def extract_insights() -> dict[str, int]:
+async def extract_insights(db: AsyncSession) -> dict[str, int]:
     """Extract insights from recent summaries.
 
     Returns:
         Stats dict with counts
     """
-    async with get_async_session() as db:
-        # Get recent summaries (last 7 days)
-        cutoff = datetime.now(UTC) - timedelta(days=7)
-        stmt = select(Summary).where(Summary.created_at >= cutoff)
-        result = await db.execute(stmt)
-        summaries = list(result.scalars().all())
+    # Get recent summaries (last 7 days)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+    stmt = select(Summary).where(Summary.created_at >= cutoff)
+    result = await db.execute(stmt)
+    summaries = list(result.scalars().all())
 
-        if len(summaries) < 3:
-            return {"insights_created": 0}
+    if len(summaries) < 3:
+        return {"insights_created": 0}
 
-        # TODO: Implement actual insight extraction logic
-        # For now, create a placeholder insight
-        insight = Insight(
-            workspace_name="default",
-            topic="recent_activity",
-            pattern=f"Detected {len(summaries)} summaries in last 7 days",
-            confidence=0.5,
-            supporting_summary_ids=[s.id for s in summaries[:5]],
-        )
-        db.add(insight)
-        await db.commit()
+    # TODO: Implement actual insight extraction logic
+    # For now, create a placeholder insight
+    insight = Insight(
+        workspace_name="default",
+        topic="recent_activity",
+        pattern=f"Detected {len(summaries)} summaries in last 7 days",
+        confidence=0.5,
+        supporting_summary_ids=[s.id for s in summaries[:5]],
+    )
+    db.add(insight)
+    await db.commit()
 
-        return {"insights_created": 1}
+    return {"insights_created": 1}
 
 
-async def purge_expired_insights() -> int:
+async def purge_expired_insights(db: AsyncSession) -> int:
     """Remove expired insights."""
-    async with get_async_session() as db:
-        cutoff = datetime.now(UTC) - timedelta(days=MAX_INSIGHT_AGE_DAYS)
-        stmt = select(Insight).where(
-            (Insight.expires_at != None) &  # noqa: E711
-            (Insight.expires_at < cutoff)
-        )
-        result = await db.execute(stmt)
-        expired = list(result.scalars().all())
+    cutoff = datetime.now(timezone.utc) - timedelta(days=MAX_INSIGHT_AGE_DAYS)
+    stmt = select(Insight).where(
+        Insight.expires_at != None,  # noqa: E711
+        Insight.expires_at < cutoff,
+    )
+    result = await db.execute(stmt)
+    expired = list(result.scalars().all())
 
-        for insight in expired:
-            insight.is_active = False
-        await db.commit()
+    for insight in expired:
+        insight.is_active = False
+    await db.commit()
 
-        return len(expired)
+    return len(expired)
 
 
 async def consolidation_worker() -> None:
@@ -162,19 +162,20 @@ async def consolidation_worker() -> None:
 
     while True:
         try:
-            # Process pending episodes
-            stats = await process_episode_queue()
-            if stats["processed"] > 0:
-                logger.info("Processed %d episodes, %d errors",
-                           stats["processed"], stats["errors"])
+            async with tracked_db("consolidation_worker") as db:
+                # Process pending episodes
+                stats = await process_episode_queue(db)
+                if stats["processed"] > 0:
+                    logger.info("Processed %d episodes, %d errors",
+                               stats["processed"], stats["errors"])
 
-            # Run insight extraction periodically
-            await extract_insights()
+                # Run insight extraction periodically
+                await extract_insights(db)
 
-            # Purge expired insights
-            purged = await purge_expired_insights()
-            if purged > 0:
-                logger.info("Purged %d expired insights", purged)
+                # Purge expired insights
+                purged = await purge_expired_insights(db)
+                if purged > 0:
+                    logger.info("Purged %d expired insights", purged)
 
         except Exception as e:
             logger.error("Consolidation worker error: %s", e, exc_info=True)
@@ -185,7 +186,6 @@ async def consolidation_worker() -> None:
 
 async def start_consolidation_worker() -> None:
     """Start the consolidation worker in background."""
-    import asyncio
     worker_task = asyncio.create_task(consolidation_worker())
     logger.info("Consolidation worker task created")
     return worker_task
@@ -195,8 +195,6 @@ async def stop_consolidation_worker(task: asyncio.Task) -> None:
     """Stop the consolidation worker."""
     if task:
         task.cancel()
-        try:
+        with suppress(asyncio.CancelledError):
             await task
-        except asyncio.CancelledError:
-            pass
         logger.info("Consolidation worker stopped")
