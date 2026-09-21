@@ -3,8 +3,7 @@
 import asyncio
 import logging
 from contextlib import suppress
-from datetime import datetime, timezone, timedelta
-from typing import Any
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -96,7 +95,7 @@ async def process_episode_queue(db: AsyncSession, limit: int = 100) -> dict[str,
             await generate_summary(episode, db)
 
             episode.status = "summarized"
-            episode.updated_at = datetime.now(timezone.utc)
+            episode.updated_at = datetime.now(UTC)
             await db.commit()
             stats["processed"] += 1
 
@@ -116,7 +115,7 @@ async def extract_insights(db: AsyncSession) -> dict[str, int]:
         Stats dict with counts
     """
     # Get recent summaries (last 7 days)
-    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+    cutoff = datetime.now(UTC) - timedelta(days=7)
     stmt = select(Summary).where(Summary.created_at >= cutoff)
     result = await db.execute(stmt)
     summaries = list(result.scalars().all())
@@ -141,7 +140,7 @@ async def extract_insights(db: AsyncSession) -> dict[str, int]:
 
 async def purge_expired_insights(db: AsyncSession) -> int:
     """Remove expired insights."""
-    cutoff = datetime.now(timezone.utc) - timedelta(days=MAX_INSIGHT_AGE_DAYS)
+    cutoff = datetime.now(UTC) - timedelta(days=MAX_INSIGHT_AGE_DAYS)
     stmt = select(Insight).where(
         Insight.expires_at != None,  # noqa: E711
         Insight.expires_at < cutoff,
