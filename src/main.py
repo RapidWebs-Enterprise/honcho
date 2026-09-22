@@ -31,6 +31,7 @@ from src.kg.extraction_queue import (
     shutdown_extraction_queue,
 )
 from src.reconciler import ReconcilerScheduler, set_reconciler_scheduler
+from src.routers import agents as agents_router
 from src.routers import (
     conclusions,
     conclusions_confidence,
@@ -43,6 +44,7 @@ from src.routers import (
     webhooks,
     workspaces,
 )
+from src.routers import episodes as episodes_router
 from src.routers import kg as kg_router
 from src.startup import validate_embedding_schema
 from src.telemetry import (
@@ -261,6 +263,8 @@ app.include_router(keys.router, prefix="/v3")
 app.include_router(webhooks.router, prefix="/v3")
 app.include_router(deriver_metrics.router)
 app.include_router(kg_router.router)  # RAPIDWEBS FORK: KG API endpoints
+app.include_router(episodes_router.router, prefix="/v3")
+app.include_router(agents_router.router, prefix="/v3")
 
 # Prometheus metrics endpoint
 app.add_route("/metrics", metrics_endpoint, methods=["GET"])
