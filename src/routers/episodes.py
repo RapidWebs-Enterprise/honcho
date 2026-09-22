@@ -5,11 +5,12 @@ from typing import Any
 
 from fastapi import APIRouter, Body, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.kg.episodic_worker import (
+from src.kg.episodic_models import Episode, Summary, Insight
+from src.workers.consolidation import (
     create_episode,
-    extract_insights,
     get_pending_episodes,
     process_episode_queue,
+    extract_insights,
     purge_expired_insights,
 )
 
